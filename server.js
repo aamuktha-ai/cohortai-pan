@@ -5,6 +5,17 @@ import { analyzeFeasibility } from "./src/analysisEngine.js";
 import { loadPanReference } from "./src/panReference.js";
 
 const root = process.cwd();
+try {
+  const envText = await readFile(join(root, ".env"), "utf8");
+  envText.split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match || process.env[match[1]]) return;
+    process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, "");
+  });
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
+
 const port = Number(process.env.PORT || 5180);
 const host = process.env.HOST || "127.0.0.1";
 const maxRequestBytes = 2 * 1024 * 1024;
