@@ -1,0 +1,37 @@
+# CohortAI-PAN
+
+CohortAI-PAN is a standalone fixed-reference tool. It compares an investigator-provided data dictionary with the currently configured Precision Aging Network (PAN) data dictionary.
+
+The PAN dictionary is never bundled into the browser or committed to this repository. The API server retrieves it from an approved server path or approved HTTPS URL and records release provenance in every report.
+
+## Local Setup
+
+1. Copy `.env.example` to `.env` and configure an approved reference source.
+2. Set `PAN_REFERENCE_PATH` to the local approved PAN dictionary file, or set `PAN_REFERENCE_URL` to an approved HTTPS release URL.
+3. Record `PAN_REFERENCE_VERSION` and `PAN_REFERENCE_RELEASE_DATE`.
+4. Run:
+
+```bash
+npm run dev
+```
+
+Open `http://127.0.0.1:5180`.
+
+## API
+
+- `GET /api/pan/reference-status`: Returns the active PAN release metadata and fingerprint, not the dictionary itself.
+- `POST /api/pan/analyze`: Accepts the investigator dictionary, scientific question, targets, and authorization attestation. The server attaches the fixed current PAN reference before analysis.
+
+The server rejects requests above 2 MB and is intended for metadata/data dictionaries only. Put production deployments behind UACC authentication, HTTPS, and audit logging. Do not put API keys, subject-level data, or the PAN dictionary in the browser or a public repository.
+
+## Updating PAN
+
+When PAN publishes an approved new release, update the server-side source file or approved release URL, then update these settings:
+
+```text
+PAN_REFERENCE_VERSION=
+PAN_REFERENCE_RELEASE_DATE=
+PAN_REFERENCE_SOURCE_LABEL=
+```
+
+The next API refresh uses the new file and includes its SHA-256 fingerprint in the report provenance.

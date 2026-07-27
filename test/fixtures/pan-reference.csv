@@ -1,0 +1,4 @@
+variable,description,units
+age_hml,Current age in years,years
+edu_yrs_hml,Years of formal education,years
+moca_total,Montreal Cognitive Assessment total score,0-30 score

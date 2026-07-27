@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CohortAI-PAN</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell pan-shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">UACC Research AI</p>
+          <h1>CohortAI-PAN</h1>
+          <p class="lede">A fixed-reference data-dictionary comparison tool for the Precision Aging Network.</p>
+        </div>
+
+        <section class="status-panel" aria-labelledby="workflow-title">
+          <h2 id="workflow-title">Workflow</h2>
+          <ol>
+            <li>Describe the research question</li>
+            <li>Upload investigator metadata</li>
+            <li>Compare with current PAN reference</li>
+            <li>Review and export the crosswalk</li>
+          </ol>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">Fixed reference comparison</p>
+            <h2>Compare your data dictionary with PAN</h2>
+          </div>
+          <button class="secondary-button" id="loadSampleButton" type="button">Load Sample</button>
+        </header>
+
+        <section class="reference-cohort" aria-labelledby="pan-reference-title">
+          <div>
+            <p class="eyebrow">Current candidate cohort</p>
+            <h3 id="pan-reference-title">Precision Aging Network (PAN)</h3>
+            <p id="referenceStatus">Checking the approved PAN reference release...</p>
+          </div>
+        </section>
+
+        <form class="analysis-form" id="analysisForm">
+          <label>
+            Scientific question
+            <textarea id="question" rows="3" placeholder="Example: Can investigator cognitive outcomes be compared with the current PAN release?"></textarea>
+          </label>
+
+          <div class="field-grid">
+            <label>
+              Primary research area
+              <input id="diseaseArea" placeholder="Aging, dementia, cognition..." />
+            </label>
+            <label>
+              Desired analysis
+              <select id="analysisGoal">
+                <option value="direct-comparison">Direct comparison</option>
+                <option value="harmonized-pooling">Harmonized pooling</option>
+                <option value="federated-analysis">Federated analysis</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            Investigator data dictionary
+            <input id="localDictionaryFile" class="file-input" type="file" accept=".txt,.csv,.tsv,.json,.yaml,.yml,.md" />
+            <span class="file-status" id="localFileStatus">No file uploaded</span>
+            <textarea id="localDataset" rows="8" placeholder="Paste variable names, descriptions, coding, units, and timing definitions. Do not provide subject-level data."></textarea>
+          </label>
+
+          <label>
+            Target variables to compare
+            <textarea id="variables" rows="3" placeholder="age, sex, education, race, moca, trail making test a"></textarea>
+          </label>
+
+          <label class="attestation">
+            <input id="userAttestation" type="checkbox" />
+            <span>I confirm I am authorized to use this metadata/data dictionary for comparison and am not submitting subject-level data.</span>
+          </label>
+
+          <div class="actions">
+            <button class="primary-button" id="generateButton" type="submit" disabled>Generate PAN Crosswalk</button>
+            <button class="secondary-button" id="clearButton" type="button">Clear</button>
+          </div>
+          <p class="form-error hidden" id="formError" role="alert"></p>
+        </form>
+      </section>
+
+      <section class="report-panel" aria-live="polite">
+        <div class="report-header">
+          <div>
+            <p class="eyebrow">Structured output</p>
+            <h2>PAN Feasibility Report</h2>
+          </div>
+          <div class="report-actions">
+            <button class="secondary-button" id="downloadCrosswalkButton" type="button" disabled>Crosswalk CSV</button>
+            <button class="secondary-button" id="downloadButton" type="button" disabled>Report JSON</button>
+          </div>
+        </div>
+        <div id="emptyState" class="empty-state">
+          <strong>No assessment yet</strong>
+          <p>The API uses the configured PAN reference release. It does not expose the underlying reference dictionary to the browser.</p>
+        </div>
+        <div id="report" class="report hidden"></div>
+      </section>
+    </main>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
