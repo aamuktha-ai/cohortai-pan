@@ -1,4 +1,6 @@
-export const pipelineVersion = "cohortai-prototype-0.7";
+export const pipelineVersion = "cohortai-pan-0.8";
+
+import { getPanCoreRule, panReferencePreference } from "./panHarmonizationProfile.js";
 
 const dictionaryRecordCache = new Map();
 const candidateDictionaryCache = new Map();
@@ -306,6 +308,16 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
   const extracted = [];
   let activeUppercaseVariable = "";
   let activeLowercaseRecord = null;
+  let activeDomain = "";
+  const domainByRowIndex = new Map();
+
+  rows.forEach((row, index) => {
+    const next = rows[index + 1]?.text;
+    const afterNext = rows[index + 2]?.text;
+    if (next === "↑" && /^Fields:\s*\d+/i.test(afterNext || "")) {
+      domainByRowIndex.set(row.rowIndex, row.text);
+    }
+  });
 
   const saveLowercaseRecord = () => {
     if (!activeLowercaseRecord?.description) return;
@@ -315,6 +327,12 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
 
   rows.forEach((row) => {
     const text = row.text;
+    if (domainByRowIndex.has(row.rowIndex)) {
+      saveLowercaseRecord();
+      activeDomain = domainByRowIndex.get(row.rowIndex);
+      activeUppercaseVariable = "";
+      return;
+    }
     const words = text.split(/\s+/);
     const indexVariableAt = words.findIndex((word, index) => index > 0 && isUppercaseVariable(word));
 
@@ -325,6 +343,7 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
         extracted.push({
           variable,
           description,
+          domain: activeDomain,
           sourceLine: row.sourceLine,
           rowIndex: row.rowIndex
         });
@@ -340,6 +359,7 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
       extracted.push({
         variable: activeUppercaseVariable,
         description: cleanPdfDescription(text.replace(/^Short descriptor\s+/i, "")),
+        domain: activeDomain,
         sourceLine: row.sourceLine,
         rowIndex: row.rowIndex
       });
@@ -351,6 +371,7 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
         variable: activeUppercaseVariable,
         description: "",
         values: text.replace(/^Allowable codes\s+/i, "").trim(),
+        domain: activeDomain,
         sourceLine: row.sourceLine,
         rowIndex: row.rowIndex
       });
@@ -364,6 +385,7 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
         description: "",
         values: "",
         units: "",
+        domain: activeDomain,
         sourceLine: row.sourceLine,
         rowIndex: row.rowIndex
       };
@@ -383,7 +405,7 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
 
   const merged = new Map();
   extracted.forEach((item) => {
-    const key = normalize(item.variable);
+    const key = `${normalize(item.domain)}\u0000${normalize(item.variable)}`;
     if (!key) return;
     const existing = merged.get(key) || {
       cohortLabel,
@@ -391,6 +413,7 @@ function parsePdfTextExportDictionary(lines, cohortLabel) {
       description: "",
       values: "",
       units: "",
+      domain: item.domain || "",
       sourceLine: item.sourceLine,
       rowIndex: item.rowIndex
     };
@@ -664,7 +687,9 @@ function scoreRecordAgainstTarget(record, target) {
   const evidenceBonus = (record.hasUnit ? 0.04 : 0) + (record.hasCoding ? 0.04 : 0) + (record.hasInstrument ? 0.03 : 0);
 
   // Preserve the ranking advantage of a canonical field name even when both records have rich metadata.
-  return clamp(constructScore + evidenceBonus * (1 - constructScore), 0, 1);
+  const baseScore = clamp(constructScore + evidenceBonus * (1 - constructScore), 0, 1);
+  // PAN's core reference fields need to break otherwise legitimate score ties with parallel MindCrowd or assay fields.
+  return baseScore + panReferencePreference(record, target);
 }
 
 function findBestRecord(records, target) {
@@ -693,7 +718,7 @@ function findBestRecord(records, target) {
   };
 }
 
-function compareRecords(localMatch, publicMatch, targetIsExplicit) {
+function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
   if (!localMatch.found && !publicMatch.found) {
     return {
       matchType: "No match",
@@ -729,6 +754,15 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit) {
       matchType: "Needs review",
       confidence: 48,
       rationale: "More than one dictionary field was similarly plausible for this target construct; human adjudication is needed before harmonization."
+    };
+  }
+
+  const panRule = getPanCoreRule(target, candidate.variable);
+  if (panRule?.key === "race") {
+    return {
+      matchType: "Partial",
+      confidence: 72,
+      rationale: "PAN captures race through multiple binary indicators, while a broad race construct often uses a different categorical scheme. A documented recoding policy is required."
     };
   }
   const nameSimilarity = tokenSimilarity(local.variable, candidate.variable);
@@ -812,7 +846,7 @@ function buildCrosswalk(input) {
   return targets.flatMap((target) => candidateDictionaries.map((candidateDictionary) => {
     const localMatch = findBestRecord(localRecords, target);
     const publicMatch = findBestRecord(candidateDictionary.records, target);
-    const classification = compareRecords(localMatch, publicMatch, requestedTargets.length > 0);
+    const classification = compareRecords(localMatch, publicMatch, requestedTargets.length > 0, target);
     const local = localMatch.record;
     const candidate = publicMatch.record;
 

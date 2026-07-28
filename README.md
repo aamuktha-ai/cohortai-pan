@@ -35,3 +35,7 @@ PAN_REFERENCE_SOURCE_LABEL=
 ```
 
 The next API refresh uses the new file and includes its SHA-256 fingerprint in the report provenance.
+
+## PAN Harmonization Knowledge
+
+See [`docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md`](docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md) for the reviewed PAN domain structure, collection and scoring implications, core-field rules, and the limits of what a data dictionary can establish.

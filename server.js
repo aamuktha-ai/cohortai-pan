@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { analyzeFeasibility } from "./src/analysisEngine.js";
+import { enrichPanCrosswalk, panProfileVersion } from "./src/panHarmonizationProfile.js";
 import { loadPanReference } from "./src/panReference.js";
 
 const root = process.cwd();
@@ -82,15 +83,16 @@ createServer(async (req, res) => {
       const input = await readJsonBody(req);
       validateAnalysisInput(input);
       const reference = await loadPanReference();
-      const report = analyzeFeasibility({
+      const report = enrichPanCrosswalk(analyzeFeasibility({
         ...input,
         mode: "pan-reference",
         referenceCohort: "PAN",
         candidateDatasets: reference.candidateDatasets
-      });
+      }));
       report.mode = "pan-reference";
       report.llmStatus = "CohortAI-PAN reference API using the configured PAN release.";
       report.provenance.panReference = reference.status;
+      report.provenance.panHarmonizationProfile = panProfileVersion;
       sendJson(res, 200, report);
       return;
     }
