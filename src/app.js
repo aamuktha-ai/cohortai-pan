@@ -106,7 +106,7 @@ function renderReport(data) {
     <article class="report-card">
       <h3>Variable Crosswalk</h3>
       <div class="table-wrap"><table><thead><tr><th>Target</th><th>Investigator</th><th>PAN</th><th>Match</th><th>Action</th></tr></thead><tbody>
-        ${data.crosswalk.map((row) => `<tr><td>${escapeHtml(row.targetVariable)}</td><td>${escapeHtml(row.localVariable)}</td><td>${escapeHtml(row.publicVariable)}</td><td>${renderBadge(row.matchType)}</td><td>${escapeHtml(row.harmonizationAction)}</td></tr><tr class="rationale-row"><td colspan="5">${escapeHtml(row.rationale)}</td></tr>`).join("")}
+        ${data.crosswalk.map((row) => `<tr><td>${escapeHtml(row.targetVariable)}</td><td>${escapeHtml(row.localVariable)}</td><td>${escapeHtml(row.publicVariable)}</td><td>${renderBadge(row.matchType)}</td><td>${escapeHtml(row.harmonizationAction)}</td></tr><tr class="rationale-row"><td colspan="5"><strong>Method:</strong> ${escapeHtml(row.rationale)}<br><strong>Proposed output:</strong> ${escapeHtml(row.proposedHarmonizedVariable || "Document after analyst review.")}<br><strong>Transform:</strong> ${escapeHtml(row.transformationRule)}<br><strong>Review:</strong> ${escapeHtml(row.reviewNotes)}</td></tr>`).join("")}
       </tbody></table></div>
     </article>
     <article class="report-card"><h3>Harmonization Flags</h3><ul>${data.flags.map((flag) => `<li>${escapeHtml(flag)}</li>`).join("")}</ul></article>
@@ -124,9 +124,9 @@ function downloadBlob(content, fileName, type) {
 }
 
 function buildCrosswalkCsv(data) {
-  const headers = ["target_variable", "pan_variable", "investigator_variable", "match_type", "confidence", "rationale", "harmonization_action"];
+  const headers = ["target_variable", "pan_variable", "investigator_variable", "match_type", "confidence", "rationale", "proposed_harmonized_variable", "transformation_rule", "review_notes", "reviewer_status", "harmonization_action"];
   const escapeCell = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  const rows = data.crosswalk.map((row) => [row.targetVariable, row.publicVariable, row.localVariable, row.matchType, row.confidence, row.rationale, row.harmonizationAction]);
+  const rows = data.crosswalk.map((row) => [row.targetVariable, row.publicVariable, row.localVariable, row.matchType, row.confidence, row.rationale, row.proposedHarmonizedVariable, row.transformationRule, row.reviewNotes, row.reviewerStatus, row.harmonizationAction]);
   return [headers, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n");
 }
 

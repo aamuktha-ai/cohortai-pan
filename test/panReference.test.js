@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { analyzeFeasibility } from "../src/analysisEngine.js";
+import { analyzeFeasibility, matchTypes } from "../src/analysisEngine.js";
 import { clearPanReferenceCache, loadPanReference } from "../src/panReference.js";
 
 const fixturePath = new URL("./fixtures/pan-reference.csv", import.meta.url);
@@ -92,5 +92,54 @@ test("PAN core profile prefers HML multi-select race fields over generic paralle
   });
 
   assert.equal(report.crosswalk[0].publicVariable, "race_hml_1");
-  assert.equal(report.crosswalk[0].matchType, "Partial");
+  assert.equal(report.crosswalk[0].matchType, "Analogous");
+  assert.match(report.crosswalk[0].transformationRule, /NIH-style race crosswalk/);
+});
+
+test("professor-method profile keeps the four-level taxonomy and attaches a proposed transform", () => {
+  const report = analyzeFeasibility({
+    question: "Can age be pooled?",
+    diseaseArea: "Aging",
+    analysisGoal: "harmonized-pooling",
+    variables: "age",
+    localDataset: "variable,description,units\nage_years,Age at baseline assessment,years",
+    candidateDatasets: "### Precision Aging Network (PAN)\nvariable,description,units\nage_hml,Current age at HML assessment,years",
+    userAttestation: true
+  });
+
+  assert.deepEqual(matchTypes, ["Direct", "Analogous", "Partial", "No match"]);
+  assert.equal(report.crosswalk[0].matchType, "Direct");
+  assert.equal(report.crosswalk[0].proposedHarmonizedVariable, "dem_age");
+  assert.match(report.crosswalk[0].transformationRule, /assessment visit/);
+});
+
+test("professor-method profile treats GDS and PHQ-9 as analogous with a binary derivation", () => {
+  const report = analyzeFeasibility({
+    question: "Can depression be harmonized?",
+    diseaseArea: "Aging",
+    analysisGoal: "harmonized-pooling",
+    variables: "depression",
+    localDataset: "variable,description,units\ngds_total,Geriatric Depression Scale 15 total score,0-15 score",
+    candidateDatasets: "### Precision Aging Network (PAN)\nvariable,description,units\nphq9_total,Patient Health Questionnaire 9 total score,0-27 score",
+    userAttestation: true
+  });
+
+  assert.equal(report.crosswalk[0].matchType, "Analogous");
+  assert.match(report.crosswalk[0].transformationRule, /GDS-15 >= 6 or PHQ-9 >= 10/);
+  assert.equal(report.crosswalk[0].reviewerStatus, "Needs human review");
+});
+
+test("professor-method profile rejects APOE protein as a substitute for genotype", () => {
+  const report = analyzeFeasibility({
+    question: "Can APOE be pooled?",
+    diseaseArea: "Aging",
+    analysisGoal: "harmonized-pooling",
+    variables: "apoe",
+    localDataset: "variable,description,units\napoe4_protein,APOE4 protein concentration measured by assay,pg/mL",
+    candidateDatasets: "### Precision Aging Network (PAN)\nvariable,description,values\napoe_status,APOE genotype status,e2e2; e2e3; e2e4; e3e3; e3e4; e4e4",
+    userAttestation: true
+  });
+
+  assert.equal(report.crosswalk[0].matchType, "No match");
+  assert.match(report.crosswalk[0].rationale, /protein.*genotype/i);
 });

@@ -90,7 +90,7 @@ createServer(async (req, res) => {
         candidateDatasets: reference.candidateDatasets
       }));
       report.mode = "pan-reference";
-      report.llmStatus = "CohortAI-PAN reference API using the configured PAN release.";
+      report.llmStatus = "CohortAI-PAN reference API using the configured PAN release and the professor-method harmonization profile.";
       report.provenance.panReference = reference.status;
       report.provenance.panHarmonizationProfile = panProfileVersion;
       sendJson(res, 200, report);

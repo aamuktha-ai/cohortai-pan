@@ -39,3 +39,5 @@ The next API refresh uses the new file and includes its SHA-256 fingerprint in t
 ## PAN Harmonization Knowledge
 
 See [`docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md`](docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md) for the reviewed PAN domain structure, collection and scoring implications, core-field rules, and the limits of what a data dictionary can establish.
+
+See [`docs/PROFESSOR_METHOD_ALIGNMENT.md`](docs/PROFESSOR_METHOD_ALIGNMENT.md) for the implemented match taxonomy, statistical transformation rules, and validation boundary derived from the supplied reference pipeline.

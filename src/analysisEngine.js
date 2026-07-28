@@ -1,6 +1,6 @@
-export const pipelineVersion = "cohortai-pan-0.8";
+export const pipelineVersion = "cohortai-pan-0.9";
 
-import { getPanCoreRule, panReferencePreference } from "./panHarmonizationProfile.js";
+import { getPanCoreRule, getProfessorRule, panReferencePreference } from "./panHarmonizationProfile.js";
 
 const dictionaryRecordCache = new Map();
 const candidateDictionaryCache = new Map();
@@ -18,17 +18,9 @@ const matchDefinitions = {
     definition: "Same construct but subset availability, phase restriction, timing mismatch, or binary vs. continuous mismatch.",
     action: "Use where available; document missingness; consider sensitivity analysis."
   },
-  Supplemental: {
-    definition: "Unique to one cohort and useful as context only.",
-    action: "Keep as cohort-specific context or sub-analysis variable."
-  },
   "No match": {
     definition: "Not collected or not visible in the compared dictionary.",
     action: "Exclude from pooled analysis for this construct."
-  },
-  "Needs review": {
-    definition: "Possible match, but the supplied dictionary text is too ambiguous for a clean label.",
-    action: "Route to human reviewer before analytic use."
   }
 };
 
@@ -57,12 +49,21 @@ const constructAliases = {
   "immune signature": ["signature", "expression", "immune", "rna"],
   moca: ["moca", "naccmoca", "moca_total", "montreal cognitive assessment"],
   mmse: ["mmse", "mmscore", "mini mental"],
-  depression: ["depression", "gds", "phq", "phq-9", "depressed"],
+  depression: ["depression", "gds", "phq", "phq9", "phq-9", "depressed"],
+  avlt: ["avlt", "ravlt", "rey auditory verbal learning", "immediate recall", "delayed recall", "recognition"],
   hypertension: ["hypertension", "hypertens"],
   diabetes: ["diabetes", "diab"],
+  cancer: ["cancer", "oncology", "malignancy"],
+  stroke: ["stroke", "cerebrovascular", "cva"],
   smoking: ["smoking", "smoke", "tobacco"],
   alcohol: ["alcohol", "drinks", "substance"],
-  "trail making test a": ["traila", "trails a", "trail making test part a"]
+  "trail making test a": ["traila", "trail a", "trails a", "trail making test part a"],
+  "trail making test b": ["trailb", "trail b", "trails b", "trail making test part b"],
+  "cdr sum of boxes": ["cdrsb", "cdr sum", "clinical dementia rating"],
+  "interleukin 6": ["il 6", "il-6", "interleukin 6"],
+  "interleukin 10": ["il 10", "il-10", "interleukin 10"],
+  "tumor necrosis factor alpha": ["tnfa", "tnf alpha", "tnf-alpha", "tumor necrosis factor"],
+  crp: ["crp", "c reactive protein", "c-reactive protein"]
 };
 
 const unitTerms = ["years", "year", "months", "month", "days", "day", "weeks", "week", "pg/ml", "lbs", "inches", "score", "z-score"];
@@ -729,21 +730,19 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
 
   if (localMatch.found && !publicMatch.found) {
     return {
-      matchType: targetIsExplicit ? "No match" : "Supplemental",
+      matchType: "No match",
       confidence: Math.round(localMatch.score * 70),
-      rationale: targetIsExplicit
-        ? "The requested construct appears in the investigator dictionary but is not collected or visible in the compared public dictionary."
-        : "The construct appears in the investigator dictionary but not in the compared public dictionary."
+      rationale: "The requested construct appears in the investigator dictionary but is not collected or visible in the compared PAN dictionary.",
+      reviewerStatus: "Needs human review"
     };
   }
 
   if (!localMatch.found && publicMatch.found) {
     return {
-      matchType: targetIsExplicit ? "No match" : "Supplemental",
+      matchType: "No match",
       confidence: Math.round(publicMatch.score * 70),
-      rationale: targetIsExplicit
-        ? "The requested construct appears in the public dictionary but is not collected or visible in the investigator dictionary."
-        : "The construct appears in the public dictionary but not in the investigator dictionary."
+      rationale: "The requested construct appears in the PAN dictionary but is not collected or visible in the investigator dictionary.",
+      reviewerStatus: "Needs human review"
     };
   }
 
@@ -751,18 +750,60 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
   const candidate = publicMatch.record;
   if (localMatch.ambiguous || publicMatch.ambiguous) {
     return {
-      matchType: "Needs review",
+      matchType: "Partial",
       confidence: 48,
-      rationale: "More than one dictionary field was similarly plausible for this target construct; human adjudication is needed before harmonization."
+      rationale: "More than one dictionary field was similarly plausible for this target construct; a conservative partial match is reported until human adjudication confirms the source field.",
+      reviewerStatus: "Needs human review"
+    };
+  }
+
+  const professorRule = getProfessorRule(target, candidate.variable);
+  if (professorRule) {
+    const localText = normalize([local.variable, local.description, local.values, local.units].join(" "));
+    const candidateText = normalize([candidate.variable, candidate.description, candidate.values, candidate.units].join(" "));
+    const proteinInsteadOfGenotype = professorRule.key === "apoe" && containsAny(localText, ["protein", "concentration", "pg ml", "assay", "biomarker"]);
+    const convertedMoca = professorRule.key === "moca" && containsAny(localText, ["mmse", "converted", "equivalent"]);
+    const avltDefinitionIncomplete = professorRule.key === "avlt" && !containsAny(localText, ["trial", "immediate", "delayed", "recognition", "avlt", "ravlt"]);
+
+    if (proteinInsteadOfGenotype) {
+      return {
+        matchType: "No match",
+        confidence: 92,
+        rationale: "The investigator field appears to be an APOE protein or assay measurement, while PAN apoe_status is a genotype field. These are not interchangeable constructs.",
+        reviewerStatus: "Needs human review"
+      };
+    }
+    if (convertedMoca) {
+      return {
+        matchType: "Analogous",
+        confidence: 84,
+        rationale: "The investigator result is a converted MoCA-equivalent rather than a directly administered PAN MoCA total. Preserve a direct-versus-converted provenance flag.",
+        reviewerStatus: "Needs human review"
+      };
+    }
+    if (avltDefinitionIncomplete) {
+      return {
+        matchType: "Partial",
+        confidence: 70,
+        rationale: "PAN has AVLT components, but the investigator description does not establish the same trial structure or scoring definition.",
+        reviewerStatus: "Needs human review"
+      };
+    }
+    return {
+      matchType: professorRule.expectedMatch,
+      confidence: professorRule.expectedMatch === "Direct" ? 90 : professorRule.expectedMatch === "Analogous" ? 84 : 76,
+      rationale: `${professorRule.transform} ${professorRule.review}`,
+      reviewerStatus: professorRule.expectedMatch === "Direct" ? "Ready for analyst confirmation" : "Needs human review"
     };
   }
 
   const panRule = getPanCoreRule(target, candidate.variable);
   if (panRule?.key === "race") {
     return {
-      matchType: "Partial",
-      confidence: 72,
-      rationale: "PAN captures race through multiple binary indicators, while a broad race construct often uses a different categorical scheme. A documented recoding policy is required."
+      matchType: "Analogous",
+      confidence: 82,
+      rationale: "PAN captures race through multiple binary indicators, while a broad race construct often uses a different categorical scheme. A documented recoding policy is required.",
+      reviewerStatus: "Needs human review"
     };
   }
   const nameSimilarity = tokenSimilarity(local.variable, candidate.variable);
@@ -785,7 +826,8 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
     return {
       matchType: "Direct",
       confidence: 90,
-      rationale: "The variable name, description, unit, and coding/scoring details are closely aligned."
+      rationale: "The variable name, description, unit, and coding/scoring details are closely aligned.",
+      reviewerStatus: "Ready for analyst confirmation"
     };
   }
 
@@ -793,7 +835,8 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
     return {
       matchType: "Direct",
       confidence: 84,
-      rationale: "The same instrument or scoring definition appears to be represented in both dictionaries."
+      rationale: "The same instrument or scoring definition appears to be represented in both dictionaries.",
+      reviewerStatus: "Ready for analyst confirmation"
     };
   }
 
@@ -801,15 +844,17 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
     return {
       matchType: "Analogous",
       confidence: 76,
-      rationale: "The same construct appears in both dictionaries, but names, scales, or coding details need a harmonization rule."
+      rationale: "The same construct appears in both dictionaries, but names, scales, or coding details need a harmonization rule.",
+      reviewerStatus: "Needs human review"
     };
   }
 
   if (ambiguityPresent) {
     return {
-      matchType: "Needs review",
+      matchType: "Partial",
       confidence: 45,
-      rationale: "The construct may overlap, but the supplied dictionary leaves a material definition, unit, or coding detail unclear."
+      rationale: "The construct may overlap, but the supplied dictionary leaves a material definition, unit, or coding detail unclear.",
+      reviewerStatus: "Needs human review"
     };
   }
 
@@ -817,14 +862,16 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
     return {
       matchType: "Partial",
       confidence: 66,
-      rationale: "The construct appears in both dictionaries, but availability, timing, coding, unit, or definition details are incomplete or mismatched."
+      rationale: "The construct appears in both dictionaries, but availability, timing, coding, unit, or definition details are incomplete or mismatched.",
+      reviewerStatus: "Needs human review"
     };
   }
 
   return {
-    matchType: "Needs review",
+    matchType: "Partial",
     confidence: 52,
-    rationale: "There is possible construct overlap, but the supplied descriptions do not support a confident match type."
+    rationale: "There is possible construct overlap, but the supplied descriptions do not support a confident match type.",
+    reviewerStatus: "Needs human review"
   };
 }
 
@@ -849,6 +896,7 @@ function buildCrosswalk(input) {
     const classification = compareRecords(localMatch, publicMatch, requestedTargets.length > 0, target);
     const local = localMatch.record;
     const candidate = publicMatch.record;
+    const professorRule = candidate ? getProfessorRule(target, candidate.variable) : getProfessorRule(target);
 
     return {
       targetVariable: target,
@@ -864,7 +912,10 @@ function buildCrosswalk(input) {
       confidence: classification.confidence,
       rationale: classification.rationale,
       harmonizationAction: matchDefinitions[classification.matchType].action,
-      reviewerStatus: ["Partial", "No match", "Needs review"].includes(classification.matchType) ? "Needs human review" : "Ready for analyst confirmation"
+      proposedHarmonizedVariable: professorRule?.harmonizedVariable || "",
+      transformationRule: professorRule?.transform || "Document the final recoding, rescaling, or derivation rule before analysis.",
+      reviewNotes: professorRule?.review || "Confirm source definitions, coding, units, and timing against the original documentation.",
+      reviewerStatus: classification.reviewerStatus || (["Partial", "No match"].includes(classification.matchType) ? "Needs human review" : "Ready for analyst confirmation")
     };
   }));
 }
@@ -896,10 +947,10 @@ function buildMatchSummary(crosswalk) {
 
 function buildDimensions(crosswalk) {
   const total = Math.max(crosswalk.length, 1);
-  const available = crosswalk.filter((row) => !["No match", "Supplemental"].includes(row.matchType)).length;
+  const available = crosswalk.filter((row) => row.matchType !== "No match").length;
   const direct = crosswalk.filter((row) => row.matchType === "Direct").length;
   const usable = crosswalk.filter((row) => ["Direct", "Analogous"].includes(row.matchType)).length;
-  const highRisk = crosswalk.filter((row) => ["Partial", "No match", "Needs review"].includes(row.matchType)).length;
+  const highRisk = crosswalk.filter((row) => ["Partial", "No match"].includes(row.matchType)).length;
   const strongConfidence = crosswalk.filter((row) => row.confidence >= 75).length;
 
   const scores = [
@@ -925,7 +976,7 @@ function inferRecommendation(crosswalk) {
   const total = Math.max(crosswalk.length, 1);
   const direct = crosswalk.filter((row) => row.matchType === "Direct").length / total;
   const usable = crosswalk.filter((row) => ["Direct", "Analogous"].includes(row.matchType)).length / total;
-  const highRisk = crosswalk.filter((row) => ["No match", "Needs review"].includes(row.matchType)).length / total;
+  const highRisk = crosswalk.filter((row) => row.matchType === "No match").length / total;
 
   if (direct >= 0.7 && highRisk <= 0.1) return "Direct comparison";
   if (usable >= 0.65 && highRisk <= 0.35) return "Harmonized pooling";
@@ -943,8 +994,8 @@ function buildFlags(crosswalk, input) {
   if (crosswalk.some((row) => row.matchType === "No match")) {
     flags.push("At least one target construct is not collected or not visible in the supplied dictionary text.");
   }
-  if (crosswalk.some((row) => row.matchType === "Needs review")) {
-    flags.push("Some possible matches are ambiguous enough to require human adjudication.");
+  if (crosswalk.some((row) => row.reviewerStatus === "Needs human review")) {
+    flags.push("At least one crosswalk row requires human adjudication before the proposed harmonization rule is used.");
   }
   if (containsAny(allText, ["days", "months", "years", "follow-up", "baseline"])) {
     flags.push("Confirm time anchors and unit conversions before using longitudinal or time-to-event variables.");
@@ -982,7 +1033,7 @@ function inferSampleOverlapRisk(text) {
 }
 
 function buildNextSteps(crosswalk) {
-  const reviewRows = crosswalk.filter((row) => ["Partial", "No match", "Needs review"].includes(row.matchType));
+  const reviewRows = crosswalk.filter((row) => ["Partial", "No match"].includes(row.matchType));
   const analogousRows = crosswalk.filter((row) => row.matchType === "Analogous");
   const firstReview = reviewRows[0]?.targetVariable;
 
@@ -1007,9 +1058,9 @@ function buildProvenance(input, dictionaryParsing) {
   return {
     pipelineVersion,
     generatedAt: new Date().toISOString(),
-    modelProvider: "prototype rule engine",
-    modelVersion: "LLM adapter not connected yet",
-    promptVersion: "cohortai-harmonization-rubric-1.0",
+    modelProvider: "deterministic professor-method reference profile",
+    modelVersion: "PAN statistical harmonization profile",
+    promptVersion: "professor-harmonization-pipeline-2026.07",
     inputFingerprint: createInputFingerprint(input),
     dictionaryScope: "metadata/data dictionaries only; no subject-level data",
     userAttestation: Boolean(input.userAttestation),
@@ -1073,6 +1124,6 @@ export function analyzeFeasibility(input) {
     nextSteps: buildNextSteps(crosswalk),
     provenance: buildProvenance(input, dictionaryParsing),
     disclaimer: "Decision support only. This report does not replace expert biostatistical review and does not grant or substitute for data access approval.",
-    llmStatus: "Prototype professor-aligned rule engine. Connect the validated LLM adapter before production use."
+    llmStatus: "CohortAI-PAN statistical harmonization profile based on the supplied reference pipeline."
   };
 }
