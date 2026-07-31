@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CohortAI-PAN</title>
-    <link rel="stylesheet" href="src/styles.css?v=static-pan-20260731" />
+    <link rel="stylesheet" href="src/styles.css?v=static-pan-formats-20260731" />
   </head>
   <body>
     <main class="app-shell pan-shell">
@@ -66,7 +66,7 @@
 
           <label>
             Investigator data dictionary
-            <input id="localDictionaryFile" class="file-input" type="file" accept=".txt,.csv,.tsv,.json,.yaml,.yml,.md" />
+            <input id="localDictionaryFile" class="file-input" type="file" accept=".pdf,.txt,.csv,.tsv,.json,.yaml,.yml,.md" />
             <span class="file-status" id="localFileStatus">No file uploaded</span>
             <textarea id="localDataset" rows="8" placeholder="Paste variable names, descriptions, coding, units, and timing definitions. Do not provide subject-level data."></textarea>
           </label>
@@ -108,6 +108,6 @@
         <div id="report" class="report hidden"></div>
       </section>
     </main>
-    <script type="module" src="src/app.js?v=static-pan-20260731"></script>
+    <script type="module" src="src/app.js?v=static-pan-formats-20260731"></script>
   </body>
 </html>

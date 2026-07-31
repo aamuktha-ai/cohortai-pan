@@ -23,6 +23,10 @@ This repository includes an approved, public PAN dictionary snapshot for the Git
 
 The snapshot is intentionally public in the Pages deployment and should be replaced whenever PAN releases an approved updated dictionary. The local server remains available at `http://127.0.0.1:5180` for the server-side configuration. For a future secure deployment, point the hosted interface to an approved HTTPS API through `COHORTAI_API_BASE_URL`.
 
+## Data Dictionary Formats
+
+The upload accepts CSV, TSV, TXT, JSON, YAML, Markdown, and text-based PDF data dictionaries. Structured tables are read from common variable/field/name and description/text/definition columns, including ADNI-style `FLDNAME` and `TEXT` headers. PDF extraction is performed page by page in the browser; scanned PDFs without selectable text need OCR or a CSV/TSV text export before upload.
+
 ## Reliable Local Startup (macOS)
 
 For a presentation or recurring local use, install the background service once after configuring `.env`:

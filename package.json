@@ -8,5 +8,8 @@
     "start": "node server.js",
     "test": "node --test",
     "validate:benchmark": "node scripts/run-validation.js"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^5.4.296"
   }
 }

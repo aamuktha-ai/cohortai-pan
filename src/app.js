@@ -155,18 +155,73 @@ async function handleLocalUpload() {
   const [file] = localDictionaryFile.files;
   if (!file) return;
   try {
-    const text = await file.text();
+    setAnalysisProgress(`Reading ${file.name}...`);
+    const text = await readDictionaryFile(file);
     if (!text.trim() || text.includes("\u0000")) {
-      throw new Error("This file could not be read as a text data dictionary. Upload a CSV, TSV, TXT, JSON, YAML, or Markdown dictionary.");
+      throw new Error("This file could not be read as a data dictionary. Upload a text-based PDF, CSV, TSV, TXT, JSON, YAML, or Markdown dictionary.");
     }
     fields.localDataset.value = text;
-    localFileStatus.textContent = `Uploaded ${file.name} (${text.length.toLocaleString()} characters)`;
+    localFileStatus.textContent = `${isPdfFile(file) ? "Extracted" : "Uploaded"} ${file.name} (${text.length.toLocaleString()} characters)`;
+    setAnalysisProgress();
     clearError();
   } catch (error) {
     localDictionaryFile.value = "";
     localFileStatus.textContent = "No file uploaded";
+    setAnalysisProgress();
     showError(error.message || "The selected file could not be read.");
   }
+}
+
+function isPdfFile(file) {
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+}
+
+function pdfPageText(items) {
+  const lines = new Map();
+  items.forEach((item) => {
+    const text = String(item.str || "").trim();
+    if (!text) return;
+    const transform = Array.isArray(item.transform) ? item.transform : [];
+    const y = Math.round(Number(transform[5]) || 0);
+    const x = Number(transform[4]) || 0;
+    const line = lines.get(y) || [];
+    line.push({ text, x });
+    lines.set(y, line);
+  });
+
+  return [...lines.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([, line]) => line.sort((a, b) => a.x - b.x).map((item) => item.text).join(" "))
+    .join("\n");
+}
+
+async function extractPdfDictionaryText(file) {
+  const pdfjs = await import(new URL("../vendor/pdfjs/pdf.min.mjs", import.meta.url));
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL("../vendor/pdfjs/pdf.worker.min.mjs", import.meta.url).toString();
+  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  task.onProgress = ({ loaded = 0, total = 0 }) => {
+    if (total) setAnalysisProgress(`Reading ${file.name}: ${Math.round((loaded / total) * 100)}%`);
+  };
+  const pdf = await task.promise;
+  const pages = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    setAnalysisProgress(`Extracting page ${pageNumber} of ${pdf.numPages} from ${file.name}...`);
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const text = pdfPageText(content.items);
+    if (text) pages.push(`Page ${pageNumber}\n${text}`);
+  }
+  await task.destroy();
+
+  const extracted = pages.join("\n\n");
+  if (extracted.replace(/\s/g, "").length < 100) {
+    throw new Error("This PDF does not contain enough selectable text to read as a data dictionary. Upload an OCRed/text-based PDF or a CSV/TSV export.");
+  }
+  return extracted;
+}
+
+async function readDictionaryFile(file) {
+  return isPdfFile(file) ? extractPdfDictionaryText(file) : file.text();
 }
 
 function collectInput() {
