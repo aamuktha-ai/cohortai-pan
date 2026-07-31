@@ -106,7 +106,10 @@ createServer(async (req, res) => {
     }
 
     const data = await readFile(resolvePath(req.url || "/"));
-    res.writeHead(200, { "Content-Type": types[extname(url.pathname)] || "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": types[extname(url.pathname)] || "application/octet-stream",
+      "Cache-Control": "no-store"
+    });
     res.end(data);
   } catch (error) {
     if (url.pathname.startsWith("/api/")) {

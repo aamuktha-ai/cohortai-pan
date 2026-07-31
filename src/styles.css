@@ -243,6 +243,13 @@ textarea {
   font-weight: 650;
 }
 
+.analysis-progress {
+  margin: 0;
+  color: #006c73;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 textarea {
   resize: vertical;
   line-height: 1.45;

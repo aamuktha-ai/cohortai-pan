@@ -16,6 +16,7 @@ const generateButton = document.querySelector("#generateButton");
 const report = document.querySelector("#report");
 const emptyState = document.querySelector("#emptyState");
 const formError = document.querySelector("#formError");
+const analysisProgress = document.querySelector("#analysisProgress");
 const referenceStatus = document.querySelector("#referenceStatus");
 const localDictionaryFile = document.querySelector("#localDictionaryFile");
 const localFileStatus = document.querySelector("#localFileStatus");
@@ -49,6 +50,11 @@ function clearError() {
   formError.classList.add("hidden");
 }
 
+function setAnalysisProgress(message = "") {
+  analysisProgress.textContent = message;
+  analysisProgress.classList.toggle("hidden", !message);
+}
+
 async function loadReferenceStatus() {
   if (referenceRetryTimer) {
     window.clearTimeout(referenceRetryTimer);
@@ -75,8 +81,19 @@ async function loadReferenceStatus() {
 async function handleLocalUpload() {
   const [file] = localDictionaryFile.files;
   if (!file) return;
-  fields.localDataset.value = await file.text();
-  localFileStatus.textContent = `Uploaded ${file.name}`;
+  try {
+    const text = await file.text();
+    if (!text.trim() || text.includes("\u0000")) {
+      throw new Error("This file could not be read as a text data dictionary. Upload a CSV, TSV, TXT, JSON, YAML, or Markdown dictionary.");
+    }
+    fields.localDataset.value = text;
+    localFileStatus.textContent = `Uploaded ${file.name} (${text.length.toLocaleString()} characters)`;
+    clearError();
+  } catch (error) {
+    localDictionaryFile.value = "";
+    localFileStatus.textContent = "No file uploaded";
+    showError(error.message || "The selected file could not be read.");
+  }
 }
 
 function collectInput() {
@@ -158,6 +175,7 @@ document.querySelector("#loadSampleButton").addEventListener("click", () => {
   Object.entries(sample).forEach(([key, value]) => { fields[key].value = value; });
   localDictionaryFile.value = "";
   localFileStatus.textContent = "Sample dictionary loaded";
+  setAnalysisProgress();
   clearError();
 });
 
@@ -172,6 +190,7 @@ document.querySelector("#clearButton").addEventListener("click", () => {
   emptyState.classList.remove("hidden");
   downloadButton.disabled = true;
   downloadCrosswalkButton.disabled = true;
+  setAnalysisProgress();
   clearError();
 });
 
@@ -184,6 +203,7 @@ form.addEventListener("submit", async (event) => {
 
   generateButton.disabled = true;
   generateButton.textContent = "Generating...";
+  setAnalysisProgress("Generating your PAN crosswalk. This can take a few seconds for a large dictionary.");
   try {
     const response = await fetch("/api/pan/analyze", {
       method: "POST",
@@ -193,8 +213,11 @@ form.addEventListener("submit", async (event) => {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error || "PAN analysis failed.");
     renderReport(payload);
+    setAnalysisProgress("Crosswalk generated. Your report is ready below.");
+    report.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     showError(error.message || "PAN analysis failed.");
+    setAnalysisProgress();
   } finally {
     generateButton.disabled = false;
     generateButton.textContent = "Generate PAN Crosswalk";
