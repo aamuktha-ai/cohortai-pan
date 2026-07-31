@@ -9,6 +9,7 @@ const sample = {
 let latestReport = null;
 let referenceReady = false;
 let feedbackUrl = "";
+let referenceRetryTimer = null;
 
 const form = document.querySelector("#analysisForm");
 const generateButton = document.querySelector("#generateButton");
@@ -49,6 +50,10 @@ function clearError() {
 }
 
 async function loadReferenceStatus() {
+  if (referenceRetryTimer) {
+    window.clearTimeout(referenceRetryTimer);
+    referenceRetryTimer = null;
+  }
   try {
     const response = await fetch("/api/pan/reference-status");
     const status = await response.json();
@@ -57,9 +62,13 @@ async function loadReferenceStatus() {
     feedbackUrl = status.feedbackUrl || "";
     referenceReady = true;
     generateButton.disabled = false;
+    clearError();
   } catch (error) {
+    referenceReady = false;
+    generateButton.disabled = true;
     referenceStatus.textContent = "PAN reference unavailable. Configure the approved PAN source on the API server.";
-    showError(error.message || "The PAN reference is unavailable.");
+    showError(`${error.message || "The PAN reference is unavailable."} Retrying automatically...`);
+    referenceRetryTimer = window.setTimeout(loadReferenceStatus, 3000);
   }
 }
 
