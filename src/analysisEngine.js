@@ -42,7 +42,7 @@ const unresolvedDefinition = "Possible construct overlap, but the supplied metad
 const unresolvedAction = "Do not assign a final match type until a human reviewer adjudicates the original source documentation.";
 
 const constructAliases = {
-  age: ["age", "age_years", "age_at_diagnosis", "age_at_tx", "age at", "naccage", "age_hml"],
+  age: ["age", "age_years", "age_at_diagnosis", "age_at_tx", "age at", "naccage", "age_hml", "birth year", "birthyr", "year of birth"],
   sex: ["sex", "gender", "biological sex", "ptgender", "sex_hml"],
   education: ["education", "educ", "pteducat", "edu_yrs", "edu_yrs_hml", "years of education"],
   bmi: ["bmi", "body mass index", "height", "weight"],
@@ -474,7 +474,10 @@ function parseStructuredDictionary(text, cohortLabel) {
   if (!lines.length) return [];
 
   const delimiter = detectDelimiter(lines[0]);
-  if (!delimiter) return parseFreeTextDictionary(text, cohortLabel);
+  if (!delimiter) {
+    const formStyleRows = parseFormStyleDictionary(text, cohortLabel);
+    return formStyleRows.length ? formStyleRows : parseFreeTextDictionary(text, cohortLabel);
+  }
 
   const structuredText = rawLines(text).filter((line) => !line.trim().startsWith("###")).join("\n");
   const rows = parseDelimitedRecords(structuredText, delimiter);
@@ -508,6 +511,40 @@ function parseStructuredDictionary(text, cohortLabel) {
       domain
     });
   }).filter((record) => record.variable || record.description);
+}
+
+function extractLabeledSection(section, labels, boundaries) {
+  const labelPattern = labels.join("|");
+  const boundaryPattern = boundaries.join("|");
+  const match = section.match(new RegExp(`(?:${labelPattern})\\s+([\\s\\S]*?)(?=\\s+(?:${boundaryPattern})\\b|$)`, "i"));
+  return match?.[1]?.replace(/\s+/g, " ").trim() || "";
+}
+
+function parseFormStyleDictionary(text, cohortLabel) {
+  const sections = String(text || "").split(/(?=\bVariable\s+Number\b)/i);
+  const boundaries = ["Variable\\s+Number", "Variable\\s+Name", "Version", "Short\\s+Descriptor", "Description", "Definition", "UDS\\s+Question", "Question", "Length\\s+of\\s+Field", "Column\\s+Positions", "Data\\s+Type", "Allowable\\s+Codes", "Skips", "Blanks"];
+
+  return sections.map((section, index) => {
+    const variable = extractLabeledSection(section, ["Variable\\s+Name"], boundaries);
+    if (!/^[A-Za-z][A-Za-z0-9_]{1,}$/u.test(variable)) return null;
+
+    const description = extractLabeledSection(section, ["Short\\s+Descriptor", "Description", "Definition"], boundaries)
+      || extractLabeledSection(section, ["UDS\\s+Question", "Question"], boundaries);
+    const values = extractLabeledSection(section, ["Allowable\\s+Codes", "Permissible\\s+Values", "Valid\\s+Values"], boundaries);
+    const units = extractLabeledSection(section, ["Units?", "Scale"], boundaries);
+    const domainMatch = section.match(/\bForm\s+([A-Za-z0-9_-]+(?:\s*:\s*[^\n]{0,100})?)/i);
+
+    return makeVariableRecord({
+      cohortLabel,
+      sourceLine: section.replace(/\s+/g, " ").trim(),
+      rowIndex: index + 1,
+      variable,
+      description,
+      values,
+      units,
+      domain: domainMatch?.[1] || ""
+    });
+  }).filter(Boolean);
 }
 
 function parseFreeTextDictionary(text, cohortLabel) {
@@ -646,7 +683,8 @@ function describeDictionaryParsing(text, cohortLabel) {
   const headers = delimiter ? parseDelimitedLine(lines[0], delimiter) : [];
   const pdfTextExport = delimiter === "," && isPdfTextExport(headers);
   const cbioPortalClinical = isCbioPortalClinicalFormat(rawLines(text).filter(Boolean));
-  const yamlSchema = !cbioPortalClinical && !pdfTextExport && parseYamlSchemaDictionary(text, cohortLabel).length > 0;
+  const formStyleDictionary = !delimiter && parseFormStyleDictionary(text, cohortLabel).length > 0;
+  const yamlSchema = !cbioPortalClinical && !pdfTextExport && !formStyleDictionary && parseYamlSchemaDictionary(text, cohortLabel).length > 0;
   const records = parseDictionary(text, cohortLabel);
 
   return {
@@ -655,6 +693,8 @@ function describeDictionaryParsing(text, cohortLabel) {
       ? "PDF-text CSV reconstruction"
       : cbioPortalClinical
         ? "cBioPortal clinical data format"
+        : formStyleDictionary
+          ? "Form-style PDF data dictionary"
         : yamlSchema
           ? "YAML schema"
           : "Structured or free-text dictionary",
@@ -662,11 +702,13 @@ function describeDictionaryParsing(text, cohortLabel) {
       ? "Variable index and field-description reconstruction"
       : cbioPortalClinical
         ? "Five-row clinical metadata parser"
+        : formStyleDictionary
+          ? "Variable-name, description, and allowable-codes parser"
         : yamlSchema
           ? "Schema properties parser"
           : "Header-based dictionary parser",
     recordCount: records.length,
-    needsExtractionReview: pdfTextExport || yamlSchema
+    needsExtractionReview: pdfTextExport || formStyleDictionary || yamlSchema
   };
 }
 
@@ -728,6 +770,9 @@ function scoreRecordAgainstTarget(record, target) {
   const apoeGenotypeEvidence = targetText.includes("apoe") && containsAny(recordText, ["genotype", "allele", "rs429358", "rs7412", "e2 e3", "e3 e4", "e4 carrier"]);
   const apoeBiomarkerEvidence = targetText.includes("apoe") && containsAny(recordText, ["glycosylation", "protein", "csf", "plasma", "serum", "assay", "concentration", "peptide"]);
   const apoeSpecificity = apoeGenotypeEvidence ? 0.28 : apoeBiomarkerEvidence ? -0.3 : 0;
+  const relativeOrOnsetAge = targetText === "age" && containsAny(recordText, ["mother", "father", "sibling", "child", "relative", "age at onset", "quit smoking", "onset age"]);
+  const instrumentOnlyTarget = ["moca", "avlt", "mmse", "cdr sum of boxes"].includes(targetText);
+  if (relativeOrOnsetAge || (instrumentOnlyTarget && !containsAny(recordText, aliases))) return 0;
   return baseScore + apoeSpecificity + panReferencePreference(record, target);
 }
 
@@ -804,6 +849,8 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
     const localText = normalize([local.variable, local.description, local.values, local.units].join(" "));
     const candidateText = normalize([candidate.variable, candidate.description, candidate.values, candidate.units].join(" "));
     const proteinInsteadOfGenotype = professorRule.key === "apoe" && containsAny(localText, ["protein", "concentration", "pg ml", "assay", "biomarker", "glycosylation", "csf", "plasma", "serum", "peptide"]);
+    const genotypeAvailabilityFlag = professorRule.key === "apoe" && containsAny(localText, ["genotype collected", "genotype available", "genotype accessibility", "genotyping completed"]);
+    const birthYearInsteadOfAge = professorRule.key === "age" && containsAny(localText, ["birth year", "year of birth", "birthyr"]);
     const convertedMoca = professorRule.key === "moca" && containsAny(localText, ["mmse", "converted", "equivalent"]);
     const avltDefinitionIncomplete = professorRule.key === "avlt" && !containsAny(localText, ["trial", "immediate", "delayed", "recognition", "avlt", "ravlt"]);
 
@@ -812,6 +859,22 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
         matchType: "No match",
         confidence: 92,
         rationale: "The investigator field appears to be an APOE protein or assay measurement, while PAN apoe_status is a genotype field. These are not interchangeable constructs.",
+        reviewerStatus: "Needs human review"
+      };
+    }
+    if (genotypeAvailabilityFlag) {
+      return {
+        matchType: "No match",
+        confidence: 94,
+        rationale: "The investigator field records whether APOE genotype information was collected or available, not the genotype or e4-carrier value itself. It cannot be pooled as a genotype measure.",
+        reviewerStatus: "Needs human review"
+      };
+    }
+    if (birthYearInsteadOfAge) {
+      return {
+        matchType: "Partial",
+        confidence: 84,
+        rationale: "The investigator dictionary provides year of birth rather than age at the assessment visit. Derive age only after linking a valid visit date and documenting the calculation.",
         reviewerStatus: "Needs human review"
       };
     }

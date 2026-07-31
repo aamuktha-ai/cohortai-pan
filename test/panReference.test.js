@@ -77,6 +77,48 @@ test("ADNI structured CSV uses FLDNAME and TEXT rather than form labels", () => 
   assert.equal(report.crosswalk.find((row) => row.targetVariable === "MoCA")?.localVariable, "MOCA");
 });
 
+test("form-style PDF text dictionaries retain named variables and allowable codes", () => {
+  const formDictionary = [
+    "Form A1: Subject Demographics",
+    "Variable Number 8 Variable Name SEX Version 2 Short Descriptor Subject sex UDS Question Subject sex Length of Field 1 Data Type Numeric Allowable Codes 1 = Male 2 = Female",
+    "Variable Number 14 Variable Name EDUC Version 2 Short Descriptor Education UDS Question Subject years of education Length of Field 2 Data Type Numeric Allowable Codes 0 - 36; 99 = Unknown"
+  ].join("\n");
+  const records = parseDictionary(formDictionary, "Public form dictionary");
+
+  assert.equal(records.find((record) => record.variable === "SEX")?.description, "Subject sex");
+  assert.match(records.find((record) => record.variable === "EDUC")?.values || "", /0 - 36/);
+});
+
+test("guardrails reject relative age, genotype-availability, and unrelated instrument fields", () => {
+  const report = analyzeFeasibility({
+    question: "Compare age, APOE, and MoCA",
+    diseaseArea: "Aging",
+    analysisGoal: "harmonized-pooling",
+    variables: "age, APOE, MoCA",
+    localDataset: [
+      "variable,description,values",
+      "BIRTHYR,Subject year of birth,1900-2000",
+      "MOMONSET,Mother age at onset,15-110",
+      "APOE,APOE genotype collected,0=No;1=Yes",
+      "GDS,Geriatric Depression Scale total score,0-15"
+    ].join("\n"),
+    candidateDatasets: [
+      "### Precision Aging Network (PAN)",
+      "variable,description,values",
+      "age_hml,Current age at assessment,",
+      "apoe_status,APOE genotype status,e2/e2;e2/e3;e3/e3;e3/e4;e4/e4",
+      "moca_total,Montreal Cognitive Assessment total score,0-30"
+    ].join("\n"),
+    userAttestation: true
+  });
+
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "age")?.localVariable, "BIRTHYR");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "age")?.matchType, "Partial");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "APOE")?.matchType, "No match");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "MoCA")?.localVariable, "Not found");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "MoCA")?.matchType, "No match");
+});
+
 test("PDF-text dictionaries retain repeated field names within their source domains", () => {
   const report = analyzeFeasibility({
     question: "Compare MoCA fields",
