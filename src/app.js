@@ -1,3 +1,6 @@
+import { analyzeFeasibility, parseDictionary } from "./analysisEngine.js";
+import { enrichPanCrosswalk, panProfileVersion } from "./panHarmonizationProfile.js";
+
 const sample = {
   question: "Which investigator variables can be compared or harmonized with the current PAN reference release?",
   diseaseArea: "Aging and dementia research",
@@ -11,6 +14,9 @@ let referenceReady = false;
 let feedbackUrl = "";
 let referenceRetryTimer = null;
 const apiBaseUrl = String(globalThis.COHORTAI_API_BASE_URL || "").replace(/\/$/, "");
+const staticPageMode = new URLSearchParams(location.search).has("static") || (location.hostname.endsWith("github.io") && !apiBaseUrl);
+let bundledPanDictionary = "";
+let bundledPanStatus = null;
 
 const form = document.querySelector("#analysisForm");
 const generateButton = document.querySelector("#generateButton");
@@ -77,16 +83,56 @@ async function requestApi(path, options) {
   return payload;
 }
 
+async function loadBundledPanReference() {
+  const response = await fetch(new URL("../reference-data/PAN_Data_Dictionary.csv", import.meta.url));
+  if (!response.ok) throw new Error("The bundled PAN reference dictionary could not be loaded.");
+
+  bundledPanDictionary = await response.text();
+  if (!bundledPanDictionary.trim()) throw new Error("The bundled PAN reference dictionary is empty.");
+  parseDictionary(bundledPanDictionary, "Precision Aging Network (PAN)");
+  bundledPanStatus = {
+    cohort: "Precision Aging Network (PAN)",
+    version: "Bundled PAN dictionary snapshot",
+    releaseDate: "Release date not supplied",
+    sourceLabel: "Public static reference snapshot",
+    sourceType: "bundled static file",
+    dictionarySha256: "c0070afaade98a1890c0022aa4245e6fbe1bd07c2b1bcd9a559e12f78d18caad",
+    retrievedAt: new Date().toISOString()
+  };
+}
+
+function buildBundledPanReport(input) {
+  const report = enrichPanCrosswalk(analyzeFeasibility({
+    ...input,
+    mode: "pan-reference",
+    referenceCohort: "PAN",
+    candidateDatasets: `### Precision Aging Network (PAN)\n${bundledPanDictionary}`
+  }));
+  report.mode = "pan-reference";
+  report.llmStatus = "CohortAI-PAN static reference comparison using the bundled PAN dictionary snapshot and professor-method harmonization profile.";
+  report.provenance.panReference = bundledPanStatus;
+  report.provenance.panHarmonizationProfile = panProfileVersion;
+  return report;
+}
+
 async function loadReferenceStatus() {
   if (referenceRetryTimer) {
     window.clearTimeout(referenceRetryTimer);
     referenceRetryTimer = null;
   }
-  if (isStaticPreviewWithoutApi()) {
-    referenceReady = false;
-    generateButton.disabled = true;
-    referenceStatus.textContent = "PAN API is not connected to this GitHub Pages preview.";
-    showError("This GitHub Pages link can display the interface but cannot run the private PAN comparison API. Use the local app at http://127.0.0.1:5180 or configure a hosted, approved API.");
+  if (staticPageMode) {
+    try {
+      await loadBundledPanReference();
+      referenceStatus.textContent = `${bundledPanStatus.version} | ${bundledPanStatus.sourceLabel}`;
+      referenceReady = true;
+      generateButton.disabled = false;
+      clearError();
+    } catch (error) {
+      referenceReady = false;
+      generateButton.disabled = true;
+      referenceStatus.textContent = "Bundled PAN reference unavailable.";
+      showError(error.message || "The bundled PAN reference is unavailable.");
+    }
     return;
   }
   try {
@@ -232,11 +278,13 @@ form.addEventListener("submit", async (event) => {
   generateButton.textContent = "Generating...";
   setAnalysisProgress("Generating your PAN crosswalk. This can take a few seconds for a large dictionary.");
   try {
-    const payload = await requestApi("/api/pan/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(collectInput())
-    });
+    const payload = staticPageMode
+      ? buildBundledPanReport(collectInput())
+      : await requestApi("/api/pan/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(collectInput())
+      });
     renderReport(payload);
     setAnalysisProgress("Crosswalk generated. Your report is ready below.");
     report.scrollIntoView({ behavior: "smooth", block: "start" });

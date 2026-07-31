@@ -19,9 +19,9 @@ Open `http://127.0.0.1:5180`.
 
 ## Sharing And Hosting
 
-GitHub Pages can host the interface files, but it cannot run `server.js` or securely access the private PAN reference. A GitHub Pages URL is therefore a visual preview only and cannot generate a PAN crosswalk by itself.
+This repository includes an approved, public PAN dictionary snapshot for the GitHub Pages build. The GitHub Pages version runs the deterministic professor-method comparison locally in the browser and can generate a crosswalk without a server or API key.
 
-For a working demonstration on this computer, share the screen while using `http://127.0.0.1:5180`. For a shareable production link, deploy this Node server behind the University-approved firewall/API environment, configure its PAN reference there, and point the hosted interface to that approved HTTPS API through `COHORTAI_API_BASE_URL`.
+The snapshot is intentionally public in the Pages deployment and should be replaced whenever PAN releases an approved updated dictionary. The local server remains available at `http://127.0.0.1:5180` for the server-side configuration. For a future secure deployment, point the hosted interface to an approved HTTPS API through `COHORTAI_API_BASE_URL`.
 
 ## Reliable Local Startup (macOS)
 

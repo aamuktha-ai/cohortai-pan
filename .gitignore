@@ -1,6 +1,5 @@
 node_modules/
 .env
 .env.local
-reference-data/
 validation-results/
 .DS_Store
