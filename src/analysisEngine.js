@@ -161,17 +161,32 @@ function detectDelimiter(line) {
 }
 
 function parseDelimitedLine(line, delimiter) {
-  if (delimiter !== ",") return line.split(delimiter).map((item) => item.trim());
+  return parseDelimitedRecords(line, delimiter)[0] || [];
+}
 
-  const values = [];
+function parseDelimitedRecords(text, delimiter) {
+  const records = [];
+  let values = [];
   let current = "";
   let quoted = false;
 
-  for (const char of line) {
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
     if (char === '"') {
+      if (quoted && text[index + 1] === '"') {
+        current += '"';
+        index += 1;
+        continue;
+      }
       quoted = !quoted;
-    } else if (char === "," && !quoted) {
+    } else if (char === delimiter && !quoted) {
       values.push(current.trim());
+      current = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      values.push(current.trim());
+      if (values.some(Boolean)) records.push(values);
+      values = [];
       current = "";
     } else {
       current += char;
@@ -179,7 +194,8 @@ function parseDelimitedLine(line, delimiter) {
   }
 
   values.push(current.trim());
-  return values;
+  if (values.some(Boolean)) records.push(values);
+  return records;
 }
 
 function rawLines(value) {
@@ -187,7 +203,16 @@ function rawLines(value) {
 }
 
 function bestColumnIndex(headers, candidates) {
-  return headers.findIndex((header) => candidates.some((candidate) => normalize(header).includes(candidate)));
+  const normalizedHeaders = headers.map(normalize);
+  for (const candidate of candidates) {
+    const exact = normalizedHeaders.findIndex((header) => header === candidate);
+    if (exact >= 0) return exact;
+  }
+  for (const candidate of candidates) {
+    const partial = normalizedHeaders.findIndex((header) => header.includes(candidate));
+    if (partial >= 0) return partial;
+  }
+  return -1;
 }
 
 function isPdfTextExport(headers) {
@@ -451,20 +476,21 @@ function parseStructuredDictionary(text, cohortLabel) {
   const delimiter = detectDelimiter(lines[0]);
   if (!delimiter) return parseFreeTextDictionary(text, cohortLabel);
 
-  const headers = parseDelimitedLine(lines[0], delimiter);
+  const structuredText = rawLines(text).filter((line) => !line.trim().startsWith("###")).join("\n");
+  const rows = parseDelimitedRecords(structuredText, delimiter);
+  const headers = rows[0] || [];
   if (headers.length < 2) return parseFreeTextDictionary(text, cohortLabel);
   if (delimiter === "," && isPdfTextExport(headers)) return parsePdfTextExportDictionary(lines, cohortLabel);
 
-  const variableIndex = bestColumnIndex(headers, ["variable", "field", "name", "column"]);
-  const descriptionIndex = bestColumnIndex(headers, ["description", "definition", "label", "construct", "instrument"]);
-  const valuesIndex = bestColumnIndex(headers, ["value", "coding", "allowed", "category"]);
+  const variableIndex = bestColumnIndex(headers, ["variable", "fldname", "field", "column", "name"]);
+  const descriptionIndex = bestColumnIndex(headers, ["description", "text", "definition", "label", "construct", "instrument"]);
+  const valuesIndex = bestColumnIndex(headers, ["allowed", "coding", "code", "value", "category"]);
   const unitsIndex = bestColumnIndex(headers, ["unit", "scale"]);
-  const domainIndex = bestColumnIndex(headers, ["domain"]);
+  const domainIndex = bestColumnIndex(headers, ["domain", "tblname", "table", "crfname", "form", "phase"]);
 
   if (variableIndex === -1 && descriptionIndex === -1) return parseFreeTextDictionary(text, cohortLabel);
 
-  return lines.slice(1).map((line, index) => {
-    const cells = parseDelimitedLine(line, delimiter);
+  return rows.slice(1).map((cells, index) => {
     const variable = cells[variableIndex] || cells[0] || "";
     const description = cells[descriptionIndex] || cells[1] || "";
     const values = valuesIndex >= 0 ? cells[valuesIndex] : "";
@@ -473,7 +499,7 @@ function parseStructuredDictionary(text, cohortLabel) {
 
     return makeVariableRecord({
       cohortLabel,
-      sourceLine: line,
+      sourceLine: cells.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(delimiter),
       rowIndex: index + 2,
       variable,
       description,
@@ -697,7 +723,12 @@ function scoreRecordAgainstTarget(record, target) {
   // Preserve the ranking advantage of a canonical field name even when both records have rich metadata.
   const baseScore = clamp(constructScore + evidenceBonus * (1 - constructScore), 0, 1);
   // PAN's core reference fields need to break otherwise legitimate score ties with parallel MindCrowd or assay fields.
-  return baseScore + panReferencePreference(record, target);
+  const targetText = normalize(target);
+  const recordText = normalize([record.variable, record.description, record.values, record.units].join(" "));
+  const apoeGenotypeEvidence = targetText.includes("apoe") && containsAny(recordText, ["genotype", "allele", "rs429358", "rs7412", "e2 e3", "e3 e4", "e4 carrier"]);
+  const apoeBiomarkerEvidence = targetText.includes("apoe") && containsAny(recordText, ["glycosylation", "protein", "csf", "plasma", "serum", "assay", "concentration", "peptide"]);
+  const apoeSpecificity = apoeGenotypeEvidence ? 0.28 : apoeBiomarkerEvidence ? -0.3 : 0;
+  return baseScore + apoeSpecificity + panReferencePreference(record, target);
 }
 
 function findBestRecord(records, target) {
@@ -772,7 +803,7 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
   if (professorRule) {
     const localText = normalize([local.variable, local.description, local.values, local.units].join(" "));
     const candidateText = normalize([candidate.variable, candidate.description, candidate.values, candidate.units].join(" "));
-    const proteinInsteadOfGenotype = professorRule.key === "apoe" && containsAny(localText, ["protein", "concentration", "pg ml", "assay", "biomarker"]);
+    const proteinInsteadOfGenotype = professorRule.key === "apoe" && containsAny(localText, ["protein", "concentration", "pg ml", "assay", "biomarker", "glycosylation", "csf", "plasma", "serum", "peptide"]);
     const convertedMoca = professorRule.key === "moca" && containsAny(localText, ["mmse", "converted", "equivalent"]);
     const avltDefinitionIncomplete = professorRule.key === "avlt" && !containsAny(localText, ["trial", "immediate", "delayed", "recognition", "avlt", "ravlt"]);
 

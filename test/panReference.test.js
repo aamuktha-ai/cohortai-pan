@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { analyzeFeasibility, matchTypes } from "../src/analysisEngine.js";
+import { analyzeFeasibility, matchTypes, parseDictionary } from "../src/analysisEngine.js";
 import { clearPanReferenceCache, loadPanReference } from "../src/panReference.js";
 
 const fixturePath = new URL("./fixtures/pan-reference.csv", import.meta.url);
@@ -37,6 +37,44 @@ test("PAN API analysis input can compare a local dictionary with a server-side r
   assert.equal(report.candidateCount, 1);
   assert.equal(report.crosswalk[0].publicVariable, "age_hml");
   assert.equal(report.crosswalk[1].publicVariable, "edu_yrs_hml");
+});
+
+test("ADNI structured CSV uses FLDNAME and TEXT rather than form labels", () => {
+  const adniDictionary = [
+    '"PHASE","CRFNAME","TBLNAME","FLDNAME","TEXT","TYPE","LENGTH","CODE","UNITS"',
+    '"ADNI1","ADNI Cognitive","ADASCog","AGE","Age at baseline assessment","N","3","","years"',
+    '"ADNI1","ADNI Participant","PTDEMOG","PTGENDER","Biological sex assigned at birth","T","1","1=Male;2=Female",""',
+    '"ADNI1","ADNI Biomarker","CSF","APOEG","APOE glycosylation in ADNI CSF","N","8","","pg/mL"',
+    '"ADNI1","ADNI Genetics","APOERES","APGEN1","APOE genotype allele 1","T","2","e2;e3;e4",""',
+    '"ADNI1","ADNI Cognitive","MOCA","MOCA","Montreal Cognitive Assessment total score","N","2","","0-30"'
+  ].join("\n");
+  const records = parseDictionary(adniDictionary, "ADNI");
+
+  assert.equal(records.find((record) => record.variable === "AGE")?.description, "Age at baseline assessment");
+  assert.equal(records.find((record) => record.variable === "PTGENDER")?.description, "Biological sex assigned at birth");
+
+  const report = analyzeFeasibility({
+    question: "Can ADNI age, sex, APOE, and MoCA be compared?",
+    diseaseArea: "Cognition",
+    analysisGoal: "direct-comparison",
+    variables: "age, sex, APOE, MoCA",
+    localDataset: adniDictionary,
+    candidateDatasets: [
+      "### Precision Aging Network (PAN)",
+      "variable,description,units",
+      "age_hml,Current age at assessment,years",
+      "sex_hml,Biological sex assigned at birth,",
+      "apoe_status,APOE genotype status,",
+      "moca_total,Montreal Cognitive Assessment total score,0-30"
+    ].join("\n"),
+    userAttestation: true
+  });
+
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "age")?.localVariable, "AGE");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "sex")?.localVariable, "PTGENDER");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "APOE")?.localVariable, "APGEN1");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "APOE")?.matchType, "Direct");
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "MoCA")?.localVariable, "MOCA");
 });
 
 test("PDF-text dictionaries retain repeated field names within their source domains", () => {
