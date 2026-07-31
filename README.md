@@ -17,6 +17,12 @@ npm run dev
 
 Open `http://127.0.0.1:5180`.
 
+## Sharing And Hosting
+
+GitHub Pages can host the interface files, but it cannot run `server.js` or securely access the private PAN reference. A GitHub Pages URL is therefore a visual preview only and cannot generate a PAN crosswalk by itself.
+
+For a working demonstration on this computer, share the screen while using `http://127.0.0.1:5180`. For a shareable production link, deploy this Node server behind the University-approved firewall/API environment, configure its PAN reference there, and point the hosted interface to that approved HTTPS API through `COHORTAI_API_BASE_URL`.
+
 ## Reliable Local Startup (macOS)
 
 For a presentation or recurring local use, install the background service once after configuring `.env`:

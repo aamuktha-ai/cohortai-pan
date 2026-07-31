@@ -10,6 +10,7 @@ let latestReport = null;
 let referenceReady = false;
 let feedbackUrl = "";
 let referenceRetryTimer = null;
+const apiBaseUrl = String(globalThis.COHORTAI_API_BASE_URL || "").replace(/\/$/, "");
 
 const form = document.querySelector("#analysisForm");
 const generateButton = document.querySelector("#generateButton");
@@ -55,15 +56,41 @@ function setAnalysisProgress(message = "") {
   analysisProgress.classList.toggle("hidden", !message);
 }
 
+function apiUrl(path) {
+  return `${apiBaseUrl}${path}`;
+}
+
+function isStaticPreviewWithoutApi() {
+  return location.hostname.endsWith("github.io") && !apiBaseUrl;
+}
+
+async function requestApi(path, options) {
+  const response = await fetch(apiUrl(path), options);
+  const text = await response.text();
+  let payload;
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error("The configured CohortAI-PAN API did not return a valid response. This GitHub Pages link is a front-end preview, not the running PAN service.");
+  }
+  if (!response.ok) throw new Error(payload.error || "PAN API request failed.");
+  return payload;
+}
+
 async function loadReferenceStatus() {
   if (referenceRetryTimer) {
     window.clearTimeout(referenceRetryTimer);
     referenceRetryTimer = null;
   }
+  if (isStaticPreviewWithoutApi()) {
+    referenceReady = false;
+    generateButton.disabled = true;
+    referenceStatus.textContent = "PAN API is not connected to this GitHub Pages preview.";
+    showError("This GitHub Pages link can display the interface but cannot run the private PAN comparison API. Use the local app at http://127.0.0.1:5180 or configure a hosted, approved API.");
+    return;
+  }
   try {
-    const response = await fetch("/api/pan/reference-status");
-    const status = await response.json();
-    if (!response.ok) throw new Error(status.error || "The PAN reference is unavailable.");
+    const status = await requestApi("/api/pan/reference-status");
     referenceStatus.textContent = `${status.version} | released ${status.releaseDate} | ${status.sourceLabel}`;
     feedbackUrl = status.feedbackUrl || "";
     referenceReady = true;
@@ -205,13 +232,11 @@ form.addEventListener("submit", async (event) => {
   generateButton.textContent = "Generating...";
   setAnalysisProgress("Generating your PAN crosswalk. This can take a few seconds for a large dictionary.");
   try {
-    const response = await fetch("/api/pan/analyze", {
+    const payload = await requestApi("/api/pan/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(collectInput())
     });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || "PAN analysis failed.");
     renderReport(payload);
     setAnalysisProgress("Crosswalk generated. Your report is ready below.");
     report.scrollIntoView({ behavior: "smooth", block: "start" });
