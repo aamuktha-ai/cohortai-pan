@@ -17,6 +17,20 @@ npm run dev
 
 Open `http://127.0.0.1:5180`.
 
+## Reliable Local Startup (macOS)
+
+For a presentation or recurring local use, install the background service once after configuring `.env`:
+
+```bash
+bash scripts/install-local-service.sh
+```
+
+It starts CohortAI-PAN at login and restarts it if it stops. The app remains available at `http://127.0.0.1:5180` without leaving a Terminal window open. Remove it with:
+
+```bash
+bash scripts/uninstall-local-service.sh
+```
+
 ## API
 
 - `GET /api/pan/reference-status`: Returns the active PAN release metadata and fingerprint, not the dictionary itself.
