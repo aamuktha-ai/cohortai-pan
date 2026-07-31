@@ -21,6 +21,14 @@ const port = Number(process.env.PORT || 5180);
 const host = process.env.HOST || "127.0.0.1";
 const maxRequestBytes = 2 * 1024 * 1024;
 
+function configuredFeedbackUrl() {
+  const value = String(process.env.COHORTAI_FEEDBACK_URL || "").trim();
+  if (!value) return "";
+  const url = new URL(value);
+  if (url.protocol !== "https:") throw new Error("COHORTAI_FEEDBACK_URL must use HTTPS.");
+  return url.toString();
+}
+
 const types = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -75,7 +83,7 @@ createServer(async (req, res) => {
   try {
     if (req.method === "GET" && url.pathname === "/api/pan/reference-status") {
       const reference = await loadPanReference();
-      sendJson(res, 200, reference.status);
+      sendJson(res, 200, { ...reference.status, feedbackUrl: configuredFeedbackUrl() });
       return;
     }
 

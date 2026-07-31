@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "benchmarkVersion": "test-v1",
+    "adjudicationStatus": "adjudicated test fixture"
+  },
+  "cases": [
+    {
+      "id": "easy-age-001",
+      "stratum": "Easy / concordant",
+      "input": {
+        "question": "Can age be compared?",
+        "diseaseArea": "Aging",
+        "analysisGoal": "direct-comparison",
+        "variables": "age",
+        "localDataset": "variable,description,units\nage_years,Age at baseline assessment,years",
+        "candidateDatasets": "### Precision Aging Network (PAN)\nvariable,description,units\nage_hml,Current age at HML assessment,years"
+      },
+      "groundTruth": {
+        "variablePairs": [
+          {
+            "targetVariable": "age",
+            "candidateCohort": "Precision Aging Network (PAN)",
+            "rater1MatchType": "Direct",
+            "rater2MatchType": "Direct",
+            "matchType": "Direct"
+          }
+        ],
+        "sampleOverlapRisk": "None expected",
+        "recommendation": "Direct comparison",
+        "explanationRatings": [5]
+      }
+    }
+  ]
+}

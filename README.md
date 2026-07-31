@@ -24,6 +24,8 @@ Open `http://127.0.0.1:5180`.
 
 The server rejects requests above 2 MB and is intended for metadata/data dictionaries only. Put production deployments behind UACC authentication, HTTPS, and audit logging. Do not put API keys, subject-level data, or the PAN dictionary in the browser or a public repository.
 
+Inputs are processed in memory for the request and are not persisted by this application. An optional `COHORTAI_FEEDBACK_URL` can point users to an approved HTTPS correction channel.
+
 ## Updating PAN
 
 When PAN publishes an approved new release, update the server-side source file or approved release URL, then update these settings:
@@ -41,3 +43,5 @@ The next API refresh uses the new file and includes its SHA-256 fingerprint in t
 See [`docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md`](docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md) for the reviewed PAN domain structure, collection and scoring implications, core-field rules, and the limits of what a data dictionary can establish.
 
 See [`docs/PROFESSOR_METHOD_ALIGNMENT.md`](docs/PROFESSOR_METHOD_ALIGNMENT.md) for the implemented match taxonomy, statistical transformation rules, and validation boundary derived from the supplied reference pipeline.
+
+See [`docs/VALIDATION_RUNBOOK.md`](docs/VALIDATION_RUNBOOK.md) for the prespecified benchmark procedure, acceptance criteria, and reproducible metrics runner.

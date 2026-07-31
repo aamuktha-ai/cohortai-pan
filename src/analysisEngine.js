@@ -1,4 +1,4 @@
-export const pipelineVersion = "cohortai-pan-0.9";
+export const pipelineVersion = "cohortai-pan-1.0";
 
 import { getPanCoreRule, getProfessorRule, panReferencePreference } from "./panHarmonizationProfile.js";
 
@@ -18,6 +18,10 @@ const matchDefinitions = {
     definition: "Same construct but subset availability, phase restriction, timing mismatch, or binary vs. continuous mismatch.",
     action: "Use where available; document missingness; consider sensitivity analysis."
   },
+  Supplemental: {
+    definition: "Unique to one cohort and useful as context only.",
+    action: "Keep as cohort-specific context or a sub-analysis variable; do not pool it as the requested construct."
+  },
   "No match": {
     definition: "Not collected or not visible in the compared dictionary.",
     action: "Exclude from pooled analysis for this construct."
@@ -33,6 +37,9 @@ const dimensions = [
   "Units and timing compatibility",
   "Human-review burden"
 ];
+
+const unresolvedDefinition = "Possible construct overlap, but the supplied metadata is too ambiguous for one of the established match types.";
+const unresolvedAction = "Do not assign a final match type until a human reviewer adjudicates the original source documentation.";
 
 const constructAliases = {
   age: ["age", "age_years", "age_at_diagnosis", "age_at_tx", "age at", "naccage", "age_hml"],
@@ -730,18 +737,22 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
 
   if (localMatch.found && !publicMatch.found) {
     return {
-      matchType: "No match",
+      matchType: targetIsExplicit ? "No match" : "Supplemental",
       confidence: Math.round(localMatch.score * 70),
-      rationale: "The requested construct appears in the investigator dictionary but is not collected or visible in the compared PAN dictionary.",
+      rationale: targetIsExplicit
+        ? "The requested construct appears in the investigator dictionary but is not collected or visible in the compared PAN dictionary."
+        : "This investigator-only variable is useful as cohort-specific context but does not have a PAN counterpart.",
       reviewerStatus: "Needs human review"
     };
   }
 
   if (!localMatch.found && publicMatch.found) {
     return {
-      matchType: "No match",
+      matchType: targetIsExplicit ? "No match" : "Supplemental",
       confidence: Math.round(publicMatch.score * 70),
-      rationale: "The requested construct appears in the PAN dictionary but is not collected or visible in the investigator dictionary.",
+      rationale: targetIsExplicit
+        ? "The requested construct appears in the PAN dictionary but is not collected or visible in the investigator dictionary."
+        : "This PAN-only variable is useful as cohort-specific context but does not have an investigator counterpart.",
       reviewerStatus: "Needs human review"
     };
   }
@@ -750,9 +761,9 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
   const candidate = publicMatch.record;
   if (localMatch.ambiguous || publicMatch.ambiguous) {
     return {
-      matchType: "Partial",
+      matchType: "Needs review",
       confidence: 48,
-      rationale: "More than one dictionary field was similarly plausible for this target construct; a conservative partial match is reported until human adjudication confirms the source field.",
+      rationale: "More than one dictionary field was similarly plausible for this target construct. A final taxonomy label is intentionally withheld pending human adjudication.",
       reviewerStatus: "Needs human review"
     };
   }
@@ -851,9 +862,9 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
 
   if (ambiguityPresent) {
     return {
-      matchType: "Partial",
+      matchType: "Needs review",
       confidence: 45,
-      rationale: "The construct may overlap, but the supplied dictionary leaves a material definition, unit, or coding detail unclear.",
+      rationale: "The construct may overlap, but the supplied dictionary leaves a material definition, unit, or coding detail unclear. A final taxonomy label is intentionally withheld pending human adjudication.",
       reviewerStatus: "Needs human review"
     };
   }
@@ -868,9 +879,9 @@ function compareRecords(localMatch, publicMatch, targetIsExplicit, target) {
   }
 
   return {
-    matchType: "Partial",
+    matchType: "Needs review",
     confidence: 52,
-    rationale: "There is possible construct overlap, but the supplied descriptions do not support a confident match type.",
+    rationale: "There is possible construct overlap, but the supplied descriptions do not support a confident match type. A final taxonomy label is intentionally withheld pending human adjudication.",
     reviewerStatus: "Needs human review"
   };
 }
@@ -908,14 +919,14 @@ function buildCrosswalk(input) {
       localEvidenceLine: local?.sourceLine || "",
       publicEvidenceLine: candidate?.sourceLine || "",
       matchType: classification.matchType,
-      matchDefinition: matchDefinitions[classification.matchType].definition,
+      matchDefinition: matchDefinitions[classification.matchType]?.definition || unresolvedDefinition,
       confidence: classification.confidence,
       rationale: classification.rationale,
-      harmonizationAction: matchDefinitions[classification.matchType].action,
+      harmonizationAction: matchDefinitions[classification.matchType]?.action || unresolvedAction,
       proposedHarmonizedVariable: professorRule?.harmonizedVariable || "",
       transformationRule: professorRule?.transform || "Document the final recoding, rescaling, or derivation rule before analysis.",
       reviewNotes: professorRule?.review || "Confirm source definitions, coding, units, and timing against the original documentation.",
-      reviewerStatus: classification.reviewerStatus || (["Partial", "No match"].includes(classification.matchType) ? "Needs human review" : "Ready for analyst confirmation")
+      reviewerStatus: classification.reviewerStatus || (["Partial", "Supplemental", "No match", "Needs review"].includes(classification.matchType) ? "Needs human review" : "Ready for analyst confirmation")
     };
   }));
 }
@@ -934,7 +945,7 @@ function summarizeRecord(record) {
 function buildMatchSummary(crosswalk) {
   const summary = Object.fromEntries(matchTypes.map((type) => [type, 0]));
   crosswalk.forEach((row) => {
-    summary[row.matchType] += 1;
+    if (row.matchType in summary) summary[row.matchType] += 1;
   });
 
   return matchTypes.map((type) => ({
@@ -945,12 +956,24 @@ function buildMatchSummary(crosswalk) {
   }));
 }
 
+function buildReviewSummary(crosswalk) {
+  const unresolved = crosswalk.filter((row) => row.matchType === "Needs review");
+  const flagged = crosswalk.filter((row) => row.reviewerStatus === "Needs human review");
+  return {
+    unresolvedCount: unresolved.length,
+    unresolvedProportion: crosswalk.length ? Number((unresolved.length / crosswalk.length).toFixed(2)) : 0,
+    humanReviewCount: flagged.length,
+    humanReviewProportion: crosswalk.length ? Number((flagged.length / crosswalk.length).toFixed(2)) : 0,
+    action: unresolved.length ? unresolvedAction : "No unresolved taxonomy calls. Analyst confirmation is still required before final pooled analysis."
+  };
+}
+
 function buildDimensions(crosswalk) {
   const total = Math.max(crosswalk.length, 1);
-  const available = crosswalk.filter((row) => row.matchType !== "No match").length;
+  const available = crosswalk.filter((row) => ["Direct", "Analogous", "Partial"].includes(row.matchType)).length;
   const direct = crosswalk.filter((row) => row.matchType === "Direct").length;
   const usable = crosswalk.filter((row) => ["Direct", "Analogous"].includes(row.matchType)).length;
-  const highRisk = crosswalk.filter((row) => ["Partial", "No match"].includes(row.matchType)).length;
+  const highRisk = crosswalk.filter((row) => ["Partial", "No match", "Needs review"].includes(row.matchType)).length;
   const strongConfidence = crosswalk.filter((row) => row.confidence >= 75).length;
 
   const scores = [
@@ -976,7 +999,7 @@ function inferRecommendation(crosswalk) {
   const total = Math.max(crosswalk.length, 1);
   const direct = crosswalk.filter((row) => row.matchType === "Direct").length / total;
   const usable = crosswalk.filter((row) => ["Direct", "Analogous"].includes(row.matchType)).length / total;
-  const highRisk = crosswalk.filter((row) => row.matchType === "No match").length / total;
+  const highRisk = crosswalk.filter((row) => ["Partial", "No match", "Needs review"].includes(row.matchType)).length / total;
 
   if (direct >= 0.7 && highRisk <= 0.1) return "Direct comparison";
   if (usable >= 0.65 && highRisk <= 0.35) return "Harmonized pooling";
@@ -994,6 +1017,12 @@ function buildFlags(crosswalk, input) {
   if (crosswalk.some((row) => row.matchType === "No match")) {
     flags.push("At least one target construct is not collected or not visible in the supplied dictionary text.");
   }
+  if (crosswalk.some((row) => row.matchType === "Supplemental")) {
+    flags.push("Supplemental variables should remain cohort-specific context unless a separate analyst-defined construct is introduced.");
+  }
+  if (crosswalk.some((row) => row.matchType === "Needs review")) {
+    flags.push("At least one possible match is unresolved. It is excluded from the five-category match summary until a reviewer assigns a final taxonomy label.");
+  }
   if (crosswalk.some((row) => row.reviewerStatus === "Needs human review")) {
     flags.push("At least one crosswalk row requires human adjudication before the proposed harmonization rule is used.");
   }
@@ -1007,8 +1036,32 @@ function buildFlags(crosswalk, input) {
   if (sampleOverlapRisk.level !== "None expected") {
     flags.push(sampleOverlapRisk.rationale);
   }
+  const disclosureRisk = inferMetadataDisclosureRisk(input.localDataset);
+  if (disclosureRisk.level !== "Low") flags.push(disclosureRisk.rationale);
 
   return flags.length ? flags : ["No high-severity dictionary issues were detected by this prototype pass."];
+}
+
+function inferMetadataDisclosureRisk(text) {
+  const granularSignals = ["rare disease", "rare diagnosis", "small n", "recruitment site", "clinic", "hospital", "zip code", "postal code", "small cell", "cell count"];
+  const normalizedText = normalize(text);
+  const matches = granularSignals.filter((term) => normalizedText.includes(normalize(term)));
+  if (/\b(?:n|sample size)\s*(?:=|<|<=|≤)\s*\d{1,2}\b/i.test(String(text))) matches.push("small documented n");
+  if (matches.length >= 2) {
+    return {
+      level: "Review recommended",
+      signals: matches,
+      rationale: "The uploaded metadata contains multiple potentially identifying detail signals. Review it for unnecessary recruitment-site, rare-condition, or small-count detail before sharing the report."
+    };
+  }
+  if (matches.length === 1) {
+    return {
+      level: "Low with signal",
+      signals: matches,
+      rationale: "The uploaded metadata includes a potentially granular detail. Consider whether it is necessary for this comparison."
+    };
+  }
+  return { level: "Low", signals: [], rationale: "No unusually granular metadata signals were detected by the lightweight screen." };
 }
 
 function inferSampleOverlapRisk(text) {
@@ -1033,14 +1086,14 @@ function inferSampleOverlapRisk(text) {
 }
 
 function buildNextSteps(crosswalk) {
-  const reviewRows = crosswalk.filter((row) => ["Partial", "No match"].includes(row.matchType));
+  const reviewRows = crosswalk.filter((row) => ["Partial", "No match", "Needs review"].includes(row.matchType));
   const analogousRows = crosswalk.filter((row) => row.matchType === "Analogous");
   const firstReview = reviewRows[0]?.targetVariable;
 
   return [
     "Have a reviewer confirm each match type against the source dictionary row before treating the report as final.",
     analogousRows.length ? "For Analogous matches, write the exact recoding, rescaling, or derived-variable rule." : "For Direct matches, document why raw comparison is acceptable.",
-    "For Partial or No match variables, decide whether to restrict the analysis, run sensitivity analyses, or exclude the construct.",
+    "For Partial, Supplemental, No match, or unresolved variables, decide whether to restrict the analysis, run sensitivity analyses, retain cohort-specific context, or exclude the construct.",
     firstReview ? `Start manual review with ${firstReview}, because it has the highest downstream harmonization risk.` : "Document final analyst sign-off for the crosswalk.",
     "Save the report JSON with dictionary version, model/pipeline version, and reviewer notes."
   ];
@@ -1063,6 +1116,8 @@ function buildProvenance(input, dictionaryParsing) {
     promptVersion: "professor-harmonization-pipeline-2026.07",
     inputFingerprint: createInputFingerprint(input),
     dictionaryScope: "metadata/data dictionaries only; no subject-level data",
+    inputRetention: "Inputs are processed in memory for the request and are not persisted by this application.",
+    externalModelUse: "No external LLM is called by this release; the comparison uses the versioned deterministic PAN statistical profile.",
     userAttestation: Boolean(input.userAttestation),
     dictionaryParsing,
     matchTaxonomy: matchDefinitions
@@ -1118,12 +1173,14 @@ export function analyzeFeasibility(input) {
     recommendation: inferRecommendation(crosswalk),
     dimensions: reportDimensions,
     matchSummary: buildMatchSummary(crosswalk),
+    reviewSummary: buildReviewSummary(crosswalk),
     crosswalk,
     sampleOverlapRisk: inferSampleOverlapRisk(normalize(`${input.localDataset}\\n${input.candidateDatasets}`)),
+    metadataDisclosureRisk: inferMetadataDisclosureRisk(input.localDataset),
     flags: unique([...buildFlags(crosswalk, input), ...parsingFlags]),
     nextSteps: buildNextSteps(crosswalk),
     provenance: buildProvenance(input, dictionaryParsing),
-    disclaimer: "Decision support only. This report does not replace expert biostatistical review and does not grant or substitute for data access approval.",
+    disclaimer: "Decision support only. This report does not replace expert biostatistical review, does not grant or substitute for data access approval, and does not authorize use of PAN or any other cohort's underlying data.",
     llmStatus: "CohortAI-PAN statistical harmonization profile based on the supplied reference pipeline."
   };
 }

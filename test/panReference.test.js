@@ -96,7 +96,7 @@ test("PAN core profile prefers HML multi-select race fields over generic paralle
   assert.match(report.crosswalk[0].transformationRule, /NIH-style race crosswalk/);
 });
 
-test("professor-method profile keeps the four-level taxonomy and attaches a proposed transform", () => {
+test("professor-method profile keeps the five-category taxonomy and attaches a proposed transform", () => {
   const report = analyzeFeasibility({
     question: "Can age be pooled?",
     diseaseArea: "Aging",
@@ -107,10 +107,54 @@ test("professor-method profile keeps the four-level taxonomy and attaches a prop
     userAttestation: true
   });
 
-  assert.deepEqual(matchTypes, ["Direct", "Analogous", "Partial", "No match"]);
+  assert.deepEqual(matchTypes, ["Direct", "Analogous", "Partial", "Supplemental", "No match"]);
   assert.equal(report.crosswalk[0].matchType, "Direct");
   assert.equal(report.crosswalk[0].proposedHarmonizedVariable, "dem_age");
   assert.match(report.crosswalk[0].transformationRule, /assessment visit/);
+});
+
+test("inferred cohort-only variables are reported as Supplemental", () => {
+  const report = analyzeFeasibility({
+    question: "Review the available metadata",
+    diseaseArea: "Aging",
+    analysisGoal: "harmonized-pooling",
+    variables: "",
+    localDataset: "variable,description\nresearcher_note,Local investigator note for cohort context",
+    candidateDatasets: "### Precision Aging Network (PAN)\nvariable,description,units\nage_hml,Current age at HML assessment,years",
+    userAttestation: true
+  });
+
+  assert.equal(report.crosswalk.find((row) => row.targetVariable === "researcher_note").matchType, "Supplemental");
+});
+
+test("ambiguous source definitions are held for review instead of forced into the taxonomy", () => {
+  const report = analyzeFeasibility({
+    question: "Can tumor stage be compared?",
+    diseaseArea: "Cancer",
+    analysisGoal: "harmonized-pooling",
+    variables: "stage",
+    localDataset: "variable,description\nstage,Unknown tumor stage definition",
+    candidateDatasets: "### Precision Aging Network (PAN)\nvariable,description\nstage,Unknown clinical stage definition",
+    userAttestation: true
+  });
+
+  assert.equal(report.crosswalk[0].matchType, "Needs review");
+  assert.equal(report.reviewSummary.unresolvedCount, 1);
+  assert.equal(report.matchSummary.reduce((sum, item) => sum + item.count, 0), 0);
+});
+
+test("metadata disclosure screen flags multiple granular detail signals", () => {
+  const report = analyzeFeasibility({
+    question: "Can age be compared?",
+    diseaseArea: "Rare disease",
+    analysisGoal: "direct-comparison",
+    variables: "age",
+    localDataset: "variable,description,units\nage_years,Age from rare disease recruitment site; n=5,years",
+    candidateDatasets: "### Precision Aging Network (PAN)\nvariable,description,units\nage_hml,Current age at HML assessment,years",
+    userAttestation: true
+  });
+
+  assert.equal(report.metadataDisclosureRisk.level, "Review recommended");
 });
 
 test("professor-method profile treats GDS and PHQ-9 as analogous with a binary derivation", () => {

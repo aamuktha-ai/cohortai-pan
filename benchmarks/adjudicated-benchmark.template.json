@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "benchmarkVersion": "uacc-cohortai-pan-v1",
+    "adjudicationStatus": "pending independent biostatistician labels",
+    "notes": "Copy this file to an access-controlled location. Do not commit real cohort dictionaries or adjudicator identities to a public repository."
+  },
+  "cases": [
+    {
+      "id": "easy-001",
+      "stratum": "Easy / concordant",
+      "input": {
+        "question": "Can age be compared?",
+        "diseaseArea": "Aging",
+        "analysisGoal": "direct-comparison",
+        "variables": "age",
+        "localDataset": "variable,description,units\nage_years,Age at baseline assessment,years",
+        "candidateDatasets": "### Precision Aging Network (PAN)\nvariable,description,units\nage_hml,Current age at HML assessment,years"
+      },
+      "groundTruth": {
+        "variablePairs": [
+          {
+            "targetVariable": "age",
+            "candidateCohort": "Precision Aging Network (PAN)",
+            "rater1MatchType": "REPLACE_WITH_INDEPENDENT_LABEL",
+            "rater2MatchType": "REPLACE_WITH_INDEPENDENT_LABEL",
+            "matchType": "REPLACE_WITH_ADJUDICATED_LABEL"
+          }
+        ],
+        "sampleOverlapRisk": "REPLACE_WITH_ADJUDICATED_LABEL",
+        "recommendation": "REPLACE_WITH_ADJUDICATED_LABEL",
+        "explanationRatings": []
+      }
+    }
+  ]
+}

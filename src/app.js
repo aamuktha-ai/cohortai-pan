@@ -8,6 +8,7 @@ const sample = {
 
 let latestReport = null;
 let referenceReady = false;
+let feedbackUrl = "";
 
 const form = document.querySelector("#analysisForm");
 const generateButton = document.querySelector("#generateButton");
@@ -53,6 +54,7 @@ async function loadReferenceStatus() {
     const status = await response.json();
     if (!response.ok) throw new Error(status.error || "The PAN reference is unavailable.");
     referenceStatus.textContent = `${status.version} | released ${status.releaseDate} | ${status.sourceLabel}`;
+    feedbackUrl = status.feedbackUrl || "";
     referenceReady = true;
     generateButton.disabled = false;
   } catch (error) {
@@ -90,6 +92,9 @@ function renderReport(data) {
   downloadButton.disabled = false;
   downloadCrosswalkButton.disabled = false;
   const panReference = data.provenance?.panReference;
+  const reviewSummary = data.reviewSummary || {};
+  const summary = data.matchSummary || [];
+  const feedback = feedbackUrl ? `<p><a class="feedback-link" href="${escapeHtml(feedbackUrl)}" target="_blank" rel="noreferrer">Report a correction or concern</a></p>` : "";
   report.innerHTML = `
     <article class="report-card score">
       <div class="score-ring" style="--score: ${data.feasibilityScore}%">${data.feasibilityScore}</div>
@@ -102,6 +107,16 @@ function renderReport(data) {
         <div><dt>Release date</dt><dd>${escapeHtml(panReference?.releaseDate || "Not recorded")}</dd></div>
         <div><dt>Dictionary fingerprint</dt><dd>${escapeHtml(panReference?.dictionarySha256 || "Not recorded")}</dd></div>
       </dl>
+    </article>
+    <article class="report-card">
+      <h3>Validation Controls</h3>
+      <div class="summary-grid">
+        ${summary.map((item) => `<div class="summary-item"><strong>${escapeHtml(item.count)}</strong><span>${escapeHtml(item.matchType)}</span></div>`).join("")}
+        <div class="summary-item"><strong>${escapeHtml(reviewSummary.unresolvedCount || 0)}</strong><span>Unresolved review</span></div>
+      </div>
+      <p>Sample-overlap risk: <strong>${escapeHtml(data.sampleOverlapRisk?.level || "Not assessed")}</strong>. Metadata screen: <strong>${escapeHtml(data.metadataDisclosureRisk?.level || "Not assessed")}</strong>.</p>
+      <p>${escapeHtml(data.disclaimer)}</p>
+      ${feedback}
     </article>
     <article class="report-card">
       <h3>Variable Crosswalk</h3>

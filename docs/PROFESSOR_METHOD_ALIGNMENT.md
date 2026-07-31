@@ -6,14 +6,15 @@ This document records how CohortAI-PAN implements the statistical harmonization 
 
 ## Match Taxonomy
 
-The tool uses the four match types from the reference pipeline:
+The tool uses the established five-category crosswalk taxonomy:
 
 - `Direct`: same construct, compatible definition and scoring/coding; raw comparison is possible after analyst confirmation.
 - `Analogous`: related construct with a required recode, derivation, rescaling, or instrument-aware harmonization step.
 - `Partial`: related construct with restricted availability, a timing difference, incomplete scoring evidence, or a non-interchangeable subset.
+- `Supplemental`: unique to one cohort and retained as context only, not as a pooled construct.
 - `No match`: the construct is not collected or is not an interchangeable measurement.
 
-Human review is a separate status. It never replaces the statistical match type.
+`Needs review` is a separate unresolved status. It is used only when the supplied metadata cannot support one of the five categories; it is counted separately and is never silently forced into `Partial`.
 
 ## Implemented Statistical Rules
 
