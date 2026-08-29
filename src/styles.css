@@ -39,6 +39,22 @@ textarea {
   gap: 28px;
 }
 
+.pan-logo-lockup {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  margin-bottom: 22px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.pan-logo-lockup img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .eyebrow {
   margin: 0 0 8px;
   text-transform: uppercase;
