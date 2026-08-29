@@ -69,3 +69,5 @@ See [`docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md`](docs/PAN_DATA_DICTIONARY_DEEP_DIVE
 See [`docs/PROFESSOR_METHOD_ALIGNMENT.md`](docs/PROFESSOR_METHOD_ALIGNMENT.md) for the implemented match taxonomy, statistical transformation rules, and validation boundary derived from the supplied reference pipeline.
 
 See [`docs/VALIDATION_RUNBOOK.md`](docs/VALIDATION_RUNBOOK.md) for the prespecified benchmark procedure, acceptance criteria, and reproducible metrics runner.
+
+See [`docs/CLASSROOM_TOOL_SUMMARY.md`](docs/CLASSROOM_TOOL_SUMMARY.md) for a concise, accurate description of the current tool for teaching and demonstration.

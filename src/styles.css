@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f5f7f8;
-  color: #1d2528;
+  background: #f4f6f8;
+  color: #182b49;
 }
 
 * {
@@ -31,8 +31,8 @@ textarea {
 }
 
 .sidebar {
-  background: #153b3f;
-  color: #f7fbfa;
+  background: #0c234b;
+  color: #ffffff;
   padding: 28px;
   display: flex;
   flex-direction: column;
@@ -45,11 +45,11 @@ textarea {
   font-size: 0.74rem;
   letter-spacing: 0.08em;
   font-weight: 750;
-  color: #4f767a;
+  color: #6a7f9f;
 }
 
 .sidebar .eyebrow {
-  color: #99d1c7;
+  color: #ffb71b;
 }
 
 h1,
@@ -59,7 +59,9 @@ h2 {
 }
 
 h1 {
-  font-size: clamp(2.2rem, 7vw, 4rem);
+  max-width: 100%;
+  font-size: 2.35rem;
+  overflow-wrap: anywhere;
 }
 
 .workspace-header h2,
@@ -68,7 +70,7 @@ h1 {
 }
 
 .lede {
-  color: #cde1dd;
+  color: #d7e2f0;
   line-height: 1.55;
   margin: 16px 0 0;
 }
@@ -104,7 +106,7 @@ h1 {
 }
 
 .status-panel {
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: 3px solid #ab0520;
   padding-top: 22px;
 }
 
@@ -116,7 +118,7 @@ h1 {
 .status-panel ol {
   margin: 0;
   padding-left: 20px;
-  color: #dcefeb;
+  color: #d7e2f0;
   line-height: 1.8;
 }
 
@@ -127,7 +129,7 @@ h1 {
 
 .workspace {
   background: #ffffff;
-  border-right: 1px solid #dfe7e8;
+  border-right: 1px solid #d5dce5;
 }
 
 .workspace-header,
@@ -154,7 +156,7 @@ h1 {
 label {
   display: grid;
   gap: 8px;
-  color: #344247;
+  color: #182b49;
   font-size: 0.92rem;
   font-weight: 750;
 }
@@ -163,11 +165,11 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #cdd9dc;
+  border: 1px solid #b9c5d4;
   border-radius: 8px;
   padding: 12px;
-  background: #fbfcfc;
-  color: #1d2528;
+  background: #fbfcfe;
+  color: #182b49;
   font-weight: 500;
 }
 
@@ -176,8 +178,8 @@ textarea {
   align-items: start;
   gap: 10px;
   padding: 12px;
-  background: #f7faf9;
-  border: 1px solid #dfe7e8;
+  background: #f6f8fb;
+  border: 1px solid #d5dce5;
   border-radius: 8px;
   font-weight: 650;
 }
@@ -190,23 +192,23 @@ textarea {
 
 .file-input {
   padding: 10px;
-  background: #eef4f4;
+  background: #f2f5f9;
   border-style: dashed;
 }
 
 .file-input::file-selector-button {
   min-height: 34px;
   margin-right: 12px;
-  border: 1px solid #bfd1d3;
+  border: 1px solid #b9c5d4;
   border-radius: 8px;
   background: #ffffff;
-  color: #1d3b40;
+  color: #0c234b;
   font-weight: 750;
   cursor: pointer;
 }
 
 .file-status {
-  color: #617077;
+  color: #566b89;
   font-size: 0.82rem;
   font-weight: 650;
 }
@@ -215,10 +217,10 @@ textarea {
   display: grid;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #b9d3cf;
-  border-left: 4px solid #00747c;
+  border: 1px solid #c7d2e1;
+  border-left: 4px solid #ab0520;
   border-radius: 8px;
-  background: #f1f8f6;
+  background: #f4f7fb;
 }
 
 .reference-cohort .eyebrow {
@@ -232,7 +234,7 @@ textarea {
 
 .reference-cohort p:not(.eyebrow) {
   margin-top: 6px;
-  color: #526168;
+  color: #566b89;
   line-height: 1.45;
 }
 
@@ -245,7 +247,7 @@ textarea {
 
 .analysis-progress {
   margin: 0;
-  color: #006c73;
+  color: #0c234b;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -258,8 +260,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 3px solid rgba(0, 129, 138, 0.18);
-  border-color: #00818a;
+  outline: 3px solid rgba(171, 5, 32, 0.18);
+  border-color: #ab0520;
 }
 
 .field-grid {
@@ -275,15 +277,15 @@ textarea:focus {
 }
 
 .primary-button {
-  background: #00747c;
+  background: #ab0520;
   color: white;
   padding: 0 18px;
 }
 
 .secondary-button {
-  background: #eef4f4;
-  color: #1d3b40;
-  border-color: #d6e2e3;
+  background: #f2f5f9;
+  color: #0c234b;
+  border-color: #c7d2e1;
   padding: 0 14px;
 }
 
@@ -293,20 +295,20 @@ textarea:focus {
 }
 
 .report-panel {
-  background: #f5f7f8;
+  background: #f4f6f8;
 }
 
 .empty-state,
 .report-card {
   background: #ffffff;
-  border: 1px solid #dfe7e8;
+  border: 1px solid #d5dce5;
   border-radius: 8px;
   padding: 18px;
 }
 
 .empty-state p {
   margin: 8px 0 0;
-  color: #5c6a70;
+  color: #566b89;
   line-height: 1.5;
 }
 
@@ -335,7 +337,7 @@ textarea:focus {
   color: white;
   font-size: 1.35rem;
   font-weight: 850;
-  background: conic-gradient(#00747c var(--score), #dfe7e8 0);
+  background: conic-gradient(#ab0520 var(--score), #d5dce5 0);
 }
 
 .recommendation {
@@ -343,8 +345,8 @@ textarea:focus {
   width: fit-content;
   border-radius: 999px;
   padding: 7px 10px;
-  background: #e6f3ef;
-  color: #0e5e52;
+  background: #e8eef6;
+  color: #0c234b;
   font-weight: 800;
   font-size: 0.82rem;
 }
@@ -356,12 +358,12 @@ textarea:focus {
 
 .report-card p,
 .report-card li {
-  color: #526168;
+  color: #566b89;
   line-height: 1.5;
 }
 
 .feedback-link {
-  color: #006c73;
+  color: #ab0520;
   font-weight: 800;
 }
 
@@ -385,7 +387,7 @@ textarea:focus {
 .bar {
   height: 9px;
   border-radius: 999px;
-  background: #dce5e6;
+  background: #d5dce5;
   overflow: hidden;
 }
 
@@ -393,7 +395,7 @@ textarea:focus {
   display: block;
   height: 100%;
   width: var(--width);
-  background: #00747c;
+  background: #ab0520;
 }
 
 .summary-grid {
@@ -407,10 +409,10 @@ textarea:focus {
   gap: 6px;
   min-height: 88px;
   align-content: start;
-  border: 1px solid #dfe7e8;
+  border: 1px solid #d5dce5;
   border-radius: 8px;
   padding: 10px;
-  background: #fbfcfc;
+  background: #fbfcfe;
 }
 
 .summary-item strong {
@@ -418,7 +420,7 @@ textarea:focus {
 }
 
 .summary-item span:last-child {
-  color: #617077;
+  color: #566b89;
   font-weight: 750;
 }
 
@@ -430,7 +432,7 @@ textarea:focus {
   font-size: 0.76rem;
   font-weight: 850;
   background: #edf2f2;
-  color: #35464b;
+  color: #182b49;
 }
 
 .match-badge.direct {
@@ -472,21 +474,21 @@ table {
 th,
 td {
   padding: 10px;
-  border-bottom: 1px solid #dfe7e8;
+  border-bottom: 1px solid #d5dce5;
   text-align: left;
   vertical-align: top;
-  color: #344247;
+  color: #182b49;
   font-size: 0.88rem;
 }
 
 th {
-  background: #f1f6f6;
+  background: #eef2f7;
   font-weight: 850;
 }
 
 .rationale-row td {
-  color: #617077;
-  background: #fbfcfc;
+  color: #566b89;
+  background: #fbfcfe;
   font-size: 0.84rem;
 }
 
@@ -503,13 +505,13 @@ th {
 }
 
 .provenance-list dt {
-  color: #617077;
+  color: #566b89;
   font-weight: 800;
 }
 
 .provenance-list dd {
   margin: 0;
-  color: #344247;
+  color: #182b49;
 }
 
 @media (max-width: 1100px) {
