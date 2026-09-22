@@ -84,4 +84,3 @@ For production, put the server behind UACC authentication, HTTPS, and audit logg
 - [Validation runbook](docs/VALIDATION_RUNBOOK.md)
 - [External dictionary smoke tests](docs/EXTERNAL_DICTIONARY_SMOKE_TESTS.md)
 - [Short project summary](docs/CLASSROOM_TOOL_SUMMARY.md)
-- [Where to start in the code](docs/CODEBASE_GUIDE.md)
