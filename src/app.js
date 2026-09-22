@@ -84,21 +84,39 @@ async function requestApi(path, options) {
 }
 
 async function loadBundledPanReference() {
-  const response = await fetch(new URL("../reference-data/PAN_Data_Dictionary.csv", import.meta.url));
-  if (!response.ok) throw new Error("The bundled PAN reference dictionary could not be loaded.");
+  const [dictionaryResponse, manifestResponse] = await Promise.all([
+    fetch(new URL("../reference-data/PAN_Data_Dictionary.csv", import.meta.url)),
+    fetch(new URL("../reference-data/pan-release.json", import.meta.url))
+  ]);
+  if (!dictionaryResponse.ok) throw new Error("The bundled PAN reference dictionary could not be loaded.");
 
-  bundledPanDictionary = await response.text();
+  bundledPanDictionary = await dictionaryResponse.text();
   if (!bundledPanDictionary.trim()) throw new Error("The bundled PAN reference dictionary is empty.");
   parseDictionary(bundledPanDictionary, "Precision Aging Network (PAN)");
-  bundledPanStatus = {
+  const fallbackStatus = {
     cohort: "Precision Aging Network (PAN)",
     version: "Bundled PAN dictionary snapshot",
     releaseDate: "Release date not supplied",
     sourceLabel: "Public static reference snapshot",
     sourceType: "bundled static file",
-    dictionarySha256: "c0070afaade98a1890c0022aa4245e6fbe1bd07c2b1bcd9a559e12f78d18caad",
+    dictionarySha256: "d33458bd4646b50fa793a32f3bcb8e1daf9c50b84f00c61923d168069bd8b02d",
     retrievedAt: new Date().toISOString()
   };
+  if (!manifestResponse.ok) {
+    bundledPanStatus = fallbackStatus;
+    return;
+  }
+
+  try {
+    const manifest = await manifestResponse.json();
+    bundledPanStatus = {
+      ...fallbackStatus,
+      ...manifest,
+      retrievedAt: new Date().toISOString()
+    };
+  } catch {
+    bundledPanStatus = fallbackStatus;
+  }
 }
 
 function buildBundledPanReport(input) {

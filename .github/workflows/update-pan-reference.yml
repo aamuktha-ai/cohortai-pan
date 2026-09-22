@@ -1,0 +1,55 @@
+name: Update PAN Reference Snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: Approved HTTPS URL for the new PAN CSV or text dictionary
+        required: true
+        type: string
+      release_version:
+        description: PAN release name or version
+        required: true
+        type: string
+      release_date:
+        description: Release date in YYYY-MM-DD format
+        required: true
+        type: string
+      source_label:
+        description: Short source label shown in the report
+        required: false
+        default: Precision Aging Network approved data dictionary
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download and validate the approved PAN release
+        env:
+          PAN_UPDATE_SOURCE_URL: \${{ inputs.source_url }}
+          PAN_UPDATE_RELEASE_VERSION: \${{ inputs.release_version }}
+          PAN_UPDATE_RELEASE_DATE: \${{ inputs.release_date }}
+          PAN_UPDATE_SOURCE_LABEL: \${{ inputs.source_label }}
+        run: |
+          node scripts/update-pan-reference.js \\
+            --url "$PAN_UPDATE_SOURCE_URL" \\
+            --version "$PAN_UPDATE_RELEASE_VERSION" \\
+            --release-date "$PAN_UPDATE_RELEASE_DATE" \\
+            --source-label "$PAN_UPDATE_SOURCE_LABEL"
+      - name: Run regression tests
+        run: npm test
+      - name: Commit the approved reference update
+        run: |
+          git config user.name "cohortai-pan-release-bot"
+          git config user.email "cohortai-pan-release-bot@users.noreply.github.com"
+          git add reference-data/PAN_Data_Dictionary.csv reference-data/pan-release.json
+          git diff --cached --quiet || git commit -m "Update PAN reference snapshot"
+          git push

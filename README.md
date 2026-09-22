@@ -1,73 +1,86 @@
 # CohortAI-PAN
 
-CohortAI-PAN is a standalone fixed-reference tool. It compares an investigator-provided data dictionary with the currently configured Precision Aging Network (PAN) data dictionary.
+CohortAI-PAN helps someone compare their data dictionary with the Precision Aging Network (PAN) data dictionary. You upload a dictionary, choose the variables you care about, and the tool creates a crosswalk that shows what looks directly comparable, what needs harmonization, and what still needs a person to check.
 
-The PAN dictionary is never bundled into the browser or committed to this repository. The API server retrieves it from an approved server path or approved HTTPS URL and records release provenance in every report.
+It is meant for metadata and data dictionaries only. It does not use participant-level data, and it does not make a decision about data access or whether a study is ready to pool.
 
-## Local Setup
+## What the shared link does
 
-1. Copy `.env.example` to `.env` and configure an approved reference source.
-2. Set `PAN_REFERENCE_PATH` to the local approved PAN dictionary file, or set `PAN_REFERENCE_URL` to an approved HTTPS release URL.
-3. Record `PAN_REFERENCE_VERSION` and `PAN_REFERENCE_RELEASE_DATE`.
-4. Run:
+The public GitHub Pages version uses the public PAN snapshot in reference-data/PAN_Data_Dictionary.csv. Everything runs in the browser, so uploaded dictionaries are not sent to a server or an external model. The report includes the PAN release information and a SHA-256 fingerprint so people can see exactly which PAN snapshot was used.
 
-```bash
+The tool reads CSV, TSV, TXT, JSON, YAML, Markdown, and text-based PDF dictionaries. For CSV files, it recognizes common variable and description columns, including ADNI-style FLDNAME and TEXT. For PDFs, the text has to be selectable. A scanned PDF needs OCR or a CSV/TSV export first.
+
+## Run it locally
+
+~~~bash
 npm run dev
-```
+~~~
 
-Open `http://127.0.0.1:5180`.
+Then open [http://127.0.0.1:5180](http://127.0.0.1:5180).
 
-## Sharing And Hosting
+For regular local use on macOS, after setting up .env, you can install the local service:
 
-This repository includes an approved, public PAN dictionary snapshot for the GitHub Pages build. The GitHub Pages version runs the deterministic professor-method comparison locally in the browser and can generate a crosswalk without a server or API key.
-
-The snapshot is intentionally public in the Pages deployment and should be replaced whenever PAN releases an approved updated dictionary. The local server remains available at `http://127.0.0.1:5180` for the server-side configuration. For a future secure deployment, point the hosted interface to an approved HTTPS API through `COHORTAI_API_BASE_URL`.
-
-## Data Dictionary Formats
-
-The upload accepts CSV, TSV, TXT, JSON, YAML, Markdown, and text-based PDF data dictionaries. Structured tables are read from common variable/field/name and description/text/definition columns, including ADNI-style `FLDNAME` and `TEXT` headers. PDF extraction is performed page by page in the browser; scanned PDFs without selectable text need OCR or a CSV/TSV text export before upload.
-
-## Reliable Local Startup (macOS)
-
-For a presentation or recurring local use, install the background service once after configuring `.env`:
-
-```bash
+~~~bash
 bash scripts/install-local-service.sh
-```
+~~~
 
-It starts CohortAI-PAN at login and restarts it if it stops. The app remains available at `http://127.0.0.1:5180` without leaving a Terminal window open. Remove it with:
+It starts the app at login and restarts it if it stops. Remove it with:
 
-```bash
+~~~bash
 bash scripts/uninstall-local-service.sh
-```
+~~~
 
-## API
+## How the PAN reference is connected
 
-- `GET /api/pan/reference-status`: Returns the active PAN release metadata and fingerprint, not the dictionary itself.
-- `POST /api/pan/analyze`: Accepts the investigator dictionary, scientific question, targets, and authorization attestation. The server attaches the fixed current PAN reference before analysis.
+There are two versions of the PAN reference setup:
 
-The server rejects requests above 2 MB and is intended for metadata/data dictionaries only. Put production deployments behind UACC authentication, HTTPS, and audit logging. Do not put API keys, subject-level data, or the PAN dictionary in the browser or a public repository.
+1. **GitHub Pages / public demo:** src/app.js loads reference-data/PAN_Data_Dictionary.csv and reference-data/pan-release.json. Because GitHub Pages is a static site, it cannot automatically reach into a PAN system and refresh itself while someone is using the site. A new PAN release needs to be checked, committed, and deployed.
+2. **Secure server deployment:** src/panReference.js reads either PAN_REFERENCE_PATH or PAN_REFERENCE_URL from the server environment. If PAN can provide one approved, stable HTTPS release URL, the server can refresh from that URL on its configured cache schedule. This is the path to use for an institutional deployment with authentication and audit logging.
 
-Inputs are processed in memory for the request and are not persisted by this application. An optional `COHORTAI_FEEDBACK_URL` can point users to an approved HTTPS correction channel.
+The static reference data is intentionally public in this repository. Do not use the GitHub Pages version for a PAN release that should not be public.
 
-## Updating PAN
+## Updating the public PAN snapshot
 
-When PAN publishes an approved new release, update the server-side source file or approved release URL, then update these settings:
+The repository includes a manual **Update PAN Reference Snapshot** GitHub Action. When PAN publishes an approved CSV or text dictionary at an HTTPS URL:
 
-```text
-PAN_REFERENCE_VERSION=
-PAN_REFERENCE_RELEASE_DATE=
-PAN_REFERENCE_SOURCE_LABEL=
-```
+1. Open the repository on GitHub and go to **Actions**.
+2. Choose **Update PAN Reference Snapshot** and click **Run workflow**.
+3. Enter the approved HTTPS dictionary URL, the release version, release date, and source label.
+4. The workflow downloads the file, checks that it contains usable variable records, updates the CSV and release manifest, runs the tests, and commits the update to main.
+5. The existing Pages workflow deploys the new snapshot. The public link stays the same.
 
-The next API refresh uses the new file and includes its SHA-256 fingerprint in the report provenance.
+The update script is also available locally:
 
-## PAN Harmonization Knowledge
+~~~bash
+node scripts/update-pan-reference.js \\
+  --file /path/to/new/PAN_Data_Dictionary.csv \\
+  --version "PAN 2026.1" \\
+  --release-date 2026-09-22 \\
+  --source-label "Precision Aging Network approved data dictionary"
+~~~
 
-See [`docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md`](docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md) for the reviewed PAN domain structure, collection and scoring implications, core-field rules, and the limits of what a data dictionary can establish.
+Use --dry-run at the end if you only want to check the source and see the proposed release information. Before using a new release, someone on the PAN side should confirm that the URL and file are the approved release.
 
-See [`docs/PROFESSOR_METHOD_ALIGNMENT.md`](docs/PROFESSOR_METHOD_ALIGNMENT.md) for the implemented match taxonomy, statistical transformation rules, and validation boundary derived from the supplied reference pipeline.
+## Secure server setup
 
-See [`docs/VALIDATION_RUNBOOK.md`](docs/VALIDATION_RUNBOOK.md) for the prespecified benchmark procedure, acceptance criteria, and reproducible metrics runner.
+Copy .env.example to .env, then set either a secure local path or approved HTTPS URL:
 
-See [`docs/CLASSROOM_TOOL_SUMMARY.md`](docs/CLASSROOM_TOOL_SUMMARY.md) for a concise, accurate description of the current tool for teaching and demonstration.
+~~~text
+PAN_REFERENCE_PATH=/secure/path/PAN_Data_Dictionary.csv
+# or
+PAN_REFERENCE_URL=https://approved-pan-source.example.org/PAN_Data_Dictionary.csv
+PAN_REFERENCE_VERSION=PAN-release-id
+PAN_REFERENCE_RELEASE_DATE=YYYY-MM-DD
+PAN_REFERENCE_SOURCE_LABEL=Precision Aging Network approved data dictionary
+PAN_REFERENCE_CACHE_MINUTES=60
+~~~
+
+For production, put the server behind UACC authentication, HTTPS, and audit logging. The API only keeps the submitted dictionary in memory for the request. Do not send subject-level data, PHI, credentials, or private PAN files through the public site.
+
+## Project notes
+
+- [PAN data dictionary notes](docs/PAN_DATA_DICTIONARY_DEEP_DIVE.md)
+- [How the professor-method rules are used](docs/PROFESSOR_METHOD_ALIGNMENT.md)
+- [Validation runbook](docs/VALIDATION_RUNBOOK.md)
+- [External dictionary smoke tests](docs/EXTERNAL_DICTIONARY_SMOKE_TESTS.md)
+- [Short project summary](docs/CLASSROOM_TOOL_SUMMARY.md)

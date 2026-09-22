@@ -1,85 +1,73 @@
-# PAN Data Dictionary Deep Dive
+# PAN Data Dictionary Notes
 
-## Scope and Source
+## What was reviewed
 
-This guide was reviewed against the supplied `PAN_Data_Dictionary.pdf`, titled *Precision Aging Network Data Dictionary*. The reviewed PDF has 511 pages and its table index identifies 51 source domains with 3,416 declared field slots. CohortAI-PAN's domain-aware PDF-text parser recovers 3,240 usable variable records from the matching `page,text` export. The difference is expected because some displayed fields do not have recoverable descriptions or share structural rows in the PDF export.
+These notes come from the supplied Precision Aging Network Data Dictionary PDF. The PDF has 511 pages. Its table index lists 51 source domains and 3,416 field slots. The parser recovered 3,240 usable variable records from the matching page-text export. That difference makes sense because some PDF rows are structural or do not include a recoverable description.
 
-This document describes metadata structure and harmonization implications only. It does not establish participant eligibility, sample availability, consent, or data-access approval.
+This is a guide to the dictionary and what it means for harmonization. It does not prove eligibility, data availability, consent, or access approval.
 
-## Data Structure
+## Important structure to keep in mind
 
-- `hml_id` is the PAN participant identifier that recurs across HML tables.
-- `mindcrowd_id` is a recurring linked MindCrowd identifier. It must not be assumed to be interchangeable with `hml_id` without linkage confirmation.
-- Many HML instruments carry `visit`. The dictionary defines `visit = 1` as baseline and `visit = 2` as the first follow-up two years after baseline; subsequent values correspond to later follow-up years.
-- Many source tables also carry instrument-specific date or timestamp fields. Harmonization must use the actual assessment/collection time, not just the participant identifier.
-- The same generic field name can occur in multiple tables. CohortAI-PAN preserves the PAN source domain so a field such as `mindcrowd_id`, `visit`, or `race` is not merged across unrelated acquisition streams.
+- hml_id is the PAN participant identifier used across HML tables.
+- mindcrowd_id is a linked MindCrowd identifier. It should not be treated as interchangeable with hml_id unless the linkage is confirmed.
+- A lot of HML instruments include visit. In the dictionary, visit 1 is baseline and visit 2 is the first follow-up two years later. Later values refer to later follow-ups.
+- Tables can also include their own assessment date or timestamp. Matching studies need the actual assessment time, not just the participant ID.
+- The same generic name can show up in different tables. The tool keeps the source domain so that a field like visit or race is not automatically mixed across unrelated data collection streams.
 
-## Domain Inventory
+## Main PAN areas
 
-### Core participant, demographics, and study operations
+### Demographics and study information
 
-- `HML_Demographics` (33 fields), `HML_Eligibility` (9), `MindCrowd_Demographics` (56), and `Full_MindCrowd_Data` (28).
-- These domains contain participant linkage, demographic capture, recruitment/site fields, eligibility, discontinuation, and assessment timing.
-- Do not treat HML current-age fields and MindCrowd age-at-first-login fields as the same time anchor.
+Key tables include HML_Demographics, HML_Eligibility, MindCrowd_Demographics, and Full_MindCrowd_Data. They cover participant linkage, demographics, recruitment/site information, eligibility, discontinuation, and timing.
 
-### Cognitive and mental-health assessments
+HML current age and MindCrowd age at first login are not the same measure. The assessment anchor has to be checked before comparing them.
 
-- `AVLT` (15), `MoCA` (16), `NAART` (5), `PHQ9` (5).
-- MindCrowd task-score domains: Flanker (24), Keep Track (21), Letter Number (24), Simple and Choice (23), and Verbal Paired Associates (42).
-- Instruments must be compared at the construct level, not pooled as raw scores across different tests.
+### Cognitive and mental-health measures
 
-### Raw surveys and scored survey products
+PAN includes AVLT, MoCA, NAART, and PHQ-9, along with MindCrowd task-score tables such as Flanker, Keep Track, Letter Number, Simple and Choice, and Verbal Paired Associates.
 
-- Raw domains include ADL, anxiety, brain disease, COVID, diet, family history, health/medical, perceived stress, QPAR, sleep, social stressor, social support, socioeconomic, subjective English, and satisfaction-with-life surveys.
-- `HML_Scored_Surveys` (24) contains calculated totals and subscales derived from raw survey items. The dictionary explicitly documents several formulas, scale ranges, source-item relationships, and references.
-- For harmonization, distinguish raw responses from PAN-calculated scores. Preserve the calculation version and time period. The dictionary notes scoring changes for some QPAR scales before and after 2025-03-22.
+Scores from different cognitive tests should not be pooled as raw values just because they all measure cognition. The instrument, scoring, timing, and version matter.
 
-### Biometrics, clinical measures, and laboratories
+### Surveys and calculated scores
 
-- `Biometrics` (33) includes height, weight, body composition, and repeated blood-pressure readings with units.
-- Laboratory and biomarker domains include AD plasma biomarkers, APOE4, epigenetic clocks, Millipore cytokines, NULISAseq, polygenic risk scores, Sonora Quest blood chemistries, cortisol, and GeMAPS.
-- Direct pooling requires analyte identity, specimen/collection timing, assay platform, unit, transformation, and QC policy. For example, the cytokine section states that below-LOD readings are replaced with 0.5 times LOD and highly variable readings are replaced using the cytokine mean by assay plate.
-- `Cortisol` is described as cortisol from sweat beads in ng, which is not interchangeable with serum, saliva, or hair cortisol without an explicit model.
+PAN has raw survey data for ADL, anxiety, brain disease, COVID, diet, family history, health/medical history, perceived stress, QPAR, sleep, social stressors, social support, socioeconomic factors, subjective English, and satisfaction with life.
+
+HML_Scored_Surveys contains totals and subscales calculated from the raw questions. When a score is calculated, the formula and version need to stay with it. Some QPAR scoring changed before and after 2025-03-22, so that release detail matters.
+
+### Biometrics, labs, and biomarkers
+
+Biometrics includes height, weight, body composition, and repeated blood pressure readings. PAN also has AD plasma biomarkers, APOE4, epigenetic clocks, cytokines, NULISAseq, polygenic risk scores, blood chemistry, cortisol, and GeMAPS.
+
+For direct pooling, we need the same analyte, specimen, collection time, assay platform, units, transformation, and QC approach. For example, the cytokine documentation includes how below-LOD and highly variable results are handled. PAN cortisol is from sweat beads in ng, so it is not automatically the same as serum, saliva, or hair cortisol.
 
 ### Imaging, sensors, and physical function
 
-- Imaging domains include carotid ultrasound, structural MRI, diffusion MRI, ASL perfusion, resting-state fMRI variants, and white-matter hyperintensities.
-- Sensor and functional domains include LabFront Garmin and UEF Frailty.
-- The Garmin dictionary defines a valid day as at least 100 recorded steps and provides monitoring duration and valid-days fields. These rules are part of the measurement definition.
-- ASL fields are derived with BASIL and report units such as mL/100g/min. MRI fields require protocol, preprocessing pipeline, atlas/region definition, and QC compatibility before direct comparison.
+PAN includes carotid ultrasound, structural MRI, diffusion MRI, ASL perfusion, resting-state fMRI, white-matter hyperintensities, LabFront Garmin, and UEF Frailty.
 
-## Core PAN Reference Rules
+The Garmin dictionary defines a valid day as at least 100 recorded steps and includes monitoring duration and valid-day fields. Those are part of the measure. MRI comparisons need compatible protocols, preprocessing, atlas or region definitions, and QC before they can be treated as direct matches.
 
-| Construct | Preferred PAN field(s) | Acquisition / scoring implication | CohortAI-PAN label when details differ |
-| --- | --- | --- | --- |
-| Age | `age_hml` in `HML_Demographics` | Current age; align the assessment visit/timepoint. | Analogous or Direct only with matching anchor and units. |
-| Biological sex | `sex_hml` in `HML_Demographics` | Core demographic biological-sex question. | Analogous until coding is confirmed. |
-| Education | `edu_yrs_hml` in `HML_Demographics` | Validated years-of-education field, indicated 0-100 range. | Direct only after confirming local formal-education definition. |
-| Race | `race_hml_1` through `race_hml_555` | Multiple binary race indicators plus Other and a screening race/ethnicity field. | Partial for broad single-choice local race; require a documented recoding policy. |
-| MoCA | `moca_total` in `MoCA` | Calculated total includes an education bonus for participants with 12 or fewer years of education. | Analogous / Needs review unless administration and adjustment policy match. |
-| APOE | `apoe_status` in `APOE4`; also `rs429358`, `rs7412` | Genotype status, distinct from measured APOE protein. | Analogous until genotype/carrier derivation matches. |
-| Depression | `phq9_total` in `PHQ9` | PHQ-9 total plus question-9 endorsement field. | Direct only against matching PHQ-9 scoring and handling. |
-| BMI | Biometrics height/weight/BMI fields | Measurement units and protocol matter. | Analogous or Partial unless measurement timing/protocol match. |
+## Core fields the tool checks carefully
 
-## Required Harmonization Checks
+| Construct | PAN field(s) | What needs to match |
+| --- | --- | --- |
+| Age | age_hml in HML_Demographics | Age in years and the same visit or assessment-time anchor. |
+| Biological sex | sex_hml in HML_Demographics | The source question and coding. |
+| Education | edu_yrs_hml in HML_Demographics | Years of formal education and the range used. |
+| Race | race_hml_1 through race_hml_555 | A documented recoding plan because PAN has multiple binary indicators. |
+| MoCA | moca_total in MoCA | Administration and education-bonus policy. PAN includes an education bonus for 12 or fewer years of education. |
+| APOE | apoe_status, rs429358, rs7412 | Genotype or e4-carrier definition. Protein measurements are not substitutes. |
+| Depression | phq9_total in PHQ9 | The same PHQ-9 scoring and missing-data handling. |
+| BMI | PAN height, weight, and BMI fields | Units, timing, and measurement protocol. |
 
-1. Confirm the PAN domain and field, not merely a similar field name.
-2. Confirm participant linkage and use the correct assessment visit or timestamp.
-3. Identify raw versus calculated/derived PAN variables; do not recompute or pool without the formula and version.
-4. Check coding, allowable values, units, range, missing-data policy, and branching logic.
-5. For laboratory, imaging, sensor, and derived digital measures, require acquisition and preprocessing compatibility evidence before a `Direct` decision.
-6. Keep source evidence, dictionary release ID, release date, and SHA-256 fingerprint with every exported crosswalk.
+## Before calling something a match
 
-## Automated Coverage in CohortAI-PAN
+1. Confirm the PAN table and field, not just a similar-looking name.
+2. Confirm participant linkage and the right visit or timestamp.
+3. Separate raw fields from calculated PAN scores.
+4. Check coding, allowable values, units, range, missing-data rules, and branching.
+5. For labs, imaging, sensors, and derived digital data, check the collection and processing details before calling it direct.
+6. Save the source release, date, and dictionary fingerprint with the final crosswalk.
 
-The standalone tool now tests:
+## What the dictionary cannot tell us by itself
 
-- server-side PAN reference loading and release fingerprinting;
-- fixed PAN comparison of investigator metadata;
-- domain-preserving parsing for repeated field names in PDF-text exports;
-- HML race-field preference over generic parallel fields and its required `Partial` label;
-- server-side architecture that keeps the PAN dictionary out of browser requests and source control.
-
-## Limits of This Dictionary
-
-The data dictionary is strong evidence for variable names, descriptions, allowed values, units, calculated fields, and some acquisition/QC notes. It is not enough by itself to prove equivalence of recruitment criteria, consent, clinical adjudication, MRI scanner/protocol details, biospecimen handling, assay batch structure, or full processing pipelines. CohortAI-PAN should return `Needs review` or `Partial` where those external protocol documents are required.
+A dictionary is useful for names, descriptions, allowed values, units, calculated fields, and some collection or QC notes. It does not fully prove matching recruitment criteria, consent, clinical adjudication, scanner protocol, biospecimen handling, assay batches, or processing pipelines. When those details are missing, the tool should say Partial or Needs review, not guess.

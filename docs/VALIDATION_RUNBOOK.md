@@ -1,58 +1,50 @@
 # CohortAI-PAN Validation Runbook
 
-## What This Repository Can Validate
+## What the app can check
 
-The application now produces a versioned crosswalk, PAN release fingerprint, input fingerprint, five-category match summary, unresolved-call summary, sample-overlap flag, metadata-granularity screen, and auditable transformation notes. The included runner calculates the CohortAI metrics in the UACC validation protocol once independent expert labels are available.
+The app creates a versioned crosswalk with a PAN release fingerprint, input fingerprint, match summary, unresolved-call summary, sample-overlap flag, metadata screen, and transformation notes. The included scorer can calculate the CohortAI metrics from the UACC validation protocol after independent expert labels are available.
 
-It cannot create independent adjudication, inter-rater agreement, or institutional approvals. Those are release gates, not software features.
+The app cannot create expert labels, inter-rater agreement, or institutional approvals. Those have to come from the validation team.
 
-## Before Benchmarking
+## Before starting the benchmark
 
-1. Freeze the release: record the Git commit, `pipelineVersion`, PAN release label, PAN dictionary SHA-256 fingerprint, and benchmark version.
-2. Build the benchmark with the protocol strata: 15-20 easy/concordant, 15-20 moderate, 15-20 hard/discordant, and 5-10 edge cases.
-3. Have two biostatisticians independently label every requested variable pair using `Direct`, `Analogous`, `Partial`, `Supplemental`, or `No match`; use `Needs review` only for genuinely unresolved calls.
-4. Capture sample-overlap risk and cohort recommendation for each case. Use a third senior reviewer to resolve differences.
-5. Calculate Cohen's kappa between the two primary adjudicators before treating consensus as ground truth. Revise the rubric if kappa is below approximately 0.60.
-6. Keep a held-out set that is not used while changing the profile or parsing rules.
+1. Freeze the release. Record the Git commit, pipeline version, PAN release label, PAN dictionary SHA-256 fingerprint, and benchmark version.
+2. Build a set with the protocol difficulty groups: 15-20 easy cases, 15-20 moderate cases, 15-20 hard cases, and 5-10 edge cases.
+3. Have two biostatisticians label each requested variable pair as Direct, Analogous, Partial, Supplemental, or No match. Use Needs review only when the information is truly not enough.
+4. Record sample-overlap risk and the cohort-level recommendation for each case. Have a third senior reviewer resolve disagreements.
+5. Calculate Cohen's kappa between the first two reviewers before using consensus as the benchmark. If kappa is below about 0.60, revisit the instructions.
+6. Keep a held-out set that is not used while changing the tool.
 
-## Benchmark File
+## Benchmark file
 
-Start from `benchmarks/adjudicated-benchmark.template.json`. Store completed benchmark dictionaries and labels in an access-controlled location. The template is deliberately not a labeled benchmark and cannot be used to claim validation performance.
+Start with benchmarks/adjudicated-benchmark.template.json. Keep completed benchmark dictionaries and labels in an access-controlled location. The template is not a completed benchmark and should not be used to claim validation performance.
 
-Each case contains the exact metadata input supplied to the tool and adjudicated ground truth. Add a 1-5 explanation-quality score after a reviewer reads the tool's evidence line and rationale.
+Each case should include the exact metadata the tool received and the expert label. After reading the tool output, a reviewer can also give the explanation a 1-5 quality score.
 
-## Run the Scorer
+## Run the scorer
 
-```bash
-node scripts/run-validation.js \
-  --benchmark /secure/path/adjudicated-benchmark.json \
+~~~bash
+node scripts/run-validation.js \\
+  --benchmark /secure/path/adjudicated-benchmark.json \\
   --out /secure/path/validation-results/cohortai-pan-v1.json
-```
+~~~
 
-The output includes:
+The results include per-category precision, recall, specificity, F1, support, and Wilson confidence intervals. They also include reviewer kappa, sample-overlap sensitivity and specificity, recommendation agreement, results by difficulty, high-risk false negatives, and missed known-overlap cases.
 
-- Per-category precision, recall/sensitivity, specificity, F1, support, and 95% Wilson confidence intervals.
-- Cohen's kappa for independently entered rater-1 and rater-2 match labels.
-- Sample-overlap sensitivity and specificity with Wilson confidence intervals.
-- Cohort-recommendation exact match rate and Gwet's AC1.
-- Results stratified by difficulty tier.
-- High-risk false negatives: expert `Partial` or `No match` calls predicted as `Direct` or `Analogous`.
-- Missed known sample-overlap cases.
+## Target checks
 
-## Protocol Targets
+Use the targets in CohortAI_scRNASeqAI_Validation.docx:
 
-Use the targets in `CohortAI_scRNASeqAI_Validation.docx` as prespecified acceptance criteria:
+- F1 of at least 0.80 for No match and Partial flagging, with recall treated as especially important.
+- Sample-overlap sensitivity of at least 0.90 for known-overlap cases.
+- Exact cohort recommendation agreement of at least 0.75.
+- Mean expert explanation score of at least 4.0 out of 5.
 
-- F1 at least 0.80 for `No match` and `Partial` flagging, prioritizing recall.
-- Sample-overlap sensitivity at least 0.90 for known-overlap cases.
-- Cohort-level recommendation exact match at least 0.75.
-- Mean expert explanation-quality rating at least 4.0/5.
+Do not make an acceptance decision if there are too few labeled cases for a meaningful confidence interval. Keep the unresolved calls and false negatives for biostatistician review.
 
-Do not report an acceptance decision if any target has insufficient labeled cases for a meaningful confidence interval. Report all unresolved calls and all false negatives for biostatistician review.
+## Before wider deployment
 
-## Deployment Gates
-
-- Confirm UACC authentication, HTTPS, audit logging, and a correction-feedback URL before exposing the tool beyond the validation group.
-- Confirm the current PAN release source and refresh owner.
-- If an external LLM is added, document the provider, endpoint/model version, institutional data-handling terms, and retention policy in every report. This release does not make an external LLM call.
-- Keep the tool limited to authorized metadata/data dictionaries; do not submit subject-level records, PHI, or protected research files.
+- Confirm UACC authentication, HTTPS, audit logging, and a correction-feedback link.
+- Confirm who owns the PAN release source and how the reference will be refreshed.
+- If an external model is added later, document the provider, model version, data-handling terms, and retention policy in the report.
+- Keep the tool limited to authorized metadata and data dictionaries. Do not submit subject-level records, PHI, or protected research files.

@@ -1,45 +1,44 @@
-# Professor-Method Alignment
+# How the Professor-Method Rules Are Used
 
-## Purpose
+## What this document is for
 
-This document records how CohortAI-PAN implements the statistical harmonization process supplied in `Code_Information.docx`. The source process is an ADNI x NACC x PAN baseline harmonization pipeline. CohortAI-PAN is a data-dictionary feasibility tool, so it does not transform participant-level data. Instead, it identifies the PAN field, assigns the same match type, and returns the proposed transformation and review conditions needed before an analyst performs the transformation.
+This explains how CohortAI-PAN uses the harmonization process from Code_Information.docx. The original workflow is an ADNI, NACC, and PAN baseline harmonization pipeline.
 
-## Match Taxonomy
+The tool does not transform participant-level data. It works at the dictionary level. It finds the likely PAN field, gives it the same kind of match label, and explains the transformation or review that would be needed before an analyst actually changes data.
 
-The tool uses the established five-category crosswalk taxonomy:
+## Match labels
 
-- `Direct`: same construct, compatible definition and scoring/coding; raw comparison is possible after analyst confirmation.
-- `Analogous`: related construct with a required recode, derivation, rescaling, or instrument-aware harmonization step.
-- `Partial`: related construct with restricted availability, a timing difference, incomplete scoring evidence, or a non-interchangeable subset.
-- `Supplemental`: unique to one cohort and retained as context only, not as a pooled construct.
-- `No match`: the construct is not collected or is not an interchangeable measurement.
+- **Direct:** the same construct with compatible definition and scoring or coding. It can be compared after a person checks the details.
+- **Analogous:** related, but needs a recode, derivation, rescaling, or instrument-aware harmonization step.
+- **Partial:** related, but there is limited availability, a timing difference, missing scoring information, or a non-interchangeable subset.
+- **Supplemental:** only appears in one cohort. It can be useful context, but it is not a pooled construct.
+- **No match:** the construct is not collected or is not an interchangeable measure.
+- **Needs review:** the dictionary does not give enough information to make a responsible call. This is separate from Partial and is not quietly forced into another category.
 
-`Needs review` is a separate unresolved status. It is used only when the supplied metadata cannot support one of the five categories; it is counted separately and is never silently forced into `Partial`.
+## Main rules in the tool
 
-## Implemented Statistical Rules
-
-| Construct | PAN reference field(s) | Match logic | Proposed harmonized output |
+| Construct | PAN reference field(s) | What the tool checks | Proposed output |
 | --- | --- | --- | --- |
-| Age | `age_hml` | Direct when both are continuous age in years; visit anchor is retained for review. | `dem_age` |
-| Biological sex | `sex_hml` | Direct only as a documented biological-sex recode. | `dem_sex` |
-| Education | `edu_yrs_hml` | Direct for years of formal education. | `dem_edu_yrs` |
-| BMI | BMI or height/weight fields | Analogous because derivation and units must be documented. | `dem_bmi` |
-| Race and ethnicity | `race_hml_*` | Analogous because PAN is multi-select; use a documented NIH-style crosswalk and preserve Hispanic/Latino and multi-racial policies. | `dem_race_nih` |
-| APOE | `apoe_status`, `rs429358`, `rs7412` | Direct only for genotype. Derive e4 dose and carrier status. APOE protein is `No match`. | `dem_apoe_dose`, `dem_apoe_carrier` |
-| MoCA | `moca_total` | Direct for a directly administered compatible MoCA; converted MMSE-equivalent is Analogous and must retain source provenance. | `cog_moca`, `cog_moca_source`, `cog_moca_bl` |
-| AVLT | PAN AVLT trial, delay, and recognition fields | Partial until trial structure and scoring are verified; retain outcomes separately. | `cog_avlt_*` |
-| Depression | `phq9_total` | GDS and PHQ-9 are Analogous. Create a documented binary indicator rather than pooling raw scores. | `cog_dep_binary` |
-| Comorbidities and smoking | PAN health-medical survey fields | Direct only with confirmed binary definitions and codes. Stroke requires cross-source discordance review. | `cmb_*`, `sub_smoking_*` |
-| Cytokines and CRP | PAN assay fields | Analogous; require platform, transformation, and limit-of-detection evidence. | `cyt_*_log` |
-| MMSE, CDR-SB, Trails A/B | Not directly represented in PAN | No match for raw pooling. | Cohort-specific or excluded |
+| Age | age_hml | Direct when both are continuous age in years. The visit anchor still needs to be checked. | dem_age |
+| Biological sex | sex_hml | Direct only with a documented biological-sex recode. | dem_sex |
+| Education | edu_yrs_hml | Direct for years of formal education. | dem_edu_yrs |
+| BMI | BMI or height/weight fields | Usually analogous because the derivation and units need to be documented. | dem_bmi |
+| Race and ethnicity | race_hml fields | Usually analogous because PAN is multi-select. A documented NIH-style crosswalk is needed. | dem_race_nih |
+| APOE | apoe_status, rs429358, rs7412 | Direct only for genotype. Protein is not a substitute. | dem_apoe_dose, dem_apoe_carrier |
+| MoCA | moca_total | Direct for a directly administered compatible MoCA. A converted MMSE-equivalent is analogous and needs source information. | cog_moca |
+| AVLT | PAN AVLT fields | Partial until trial structure and scoring are checked. | cog_avlt |
+| Depression | phq9_total | GDS and PHQ-9 are analogous. Do not pool their raw scores. | cog_dep_binary |
+| Comorbidities and smoking | PAN health-medical fields | Direct only when the binary definition and coding are confirmed. | cmb or sub variables |
+| Cytokines and CRP | PAN assay fields | Analogous. Platform, transformation, and LOD rules need to be checked. | cyt variables |
+| MMSE, CDR-SB, Trails A/B | Not directly represented in PAN | No match for raw pooling. | cohort-specific or excluded |
 
-## Reproducibility Controls
+## What is recorded in a report
 
-- Each report records the PAN release label, release date, and SHA-256 dictionary fingerprint.
-- Each report records the deterministic profile version and input fingerprint.
-- The generated CSV includes the selected PAN field, match type, proposed harmonized variable, transformation rule, review notes, and reviewer status.
-- The PAN dictionary remains server-side and is not stored in the public repository or sent to the browser.
+- The PAN release label, date, and SHA-256 dictionary fingerprint.
+- The version of the rules used for the comparison.
+- A fingerprint of the input dictionary.
+- The selected PAN field, match label, proposed output, transformation note, and reviewer note.
 
-## Validation Boundary
+## What still needs expert review
 
-The implementation has regression tests for the source-method rules, including race recoding, direct age, GDS versus PHQ-9, and APOE protein versus genotype. It is not a substitute for a held-out expert validation set. Before production deployment, a statistician should adjudicate blinded examples from new source dictionaries, compare the resulting labels and transformations with the reference method, and approve the release threshold.
+The tool has tests for the main rules, including race recoding, age, GDS versus PHQ-9, and APOE protein versus genotype. That is helpful, but it is not the same as a full external validation study. Before any production use, a statistician should review blinded examples from new dictionaries and decide what level of agreement is good enough for release.

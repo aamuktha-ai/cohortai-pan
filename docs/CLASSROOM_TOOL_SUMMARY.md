@@ -1,3 +1,7 @@
-# CohortAI-PAN Classroom Summary
+# CohortAI-PAN Summary
 
-CohortAI-PAN is a browser-based decision-support prototype for comparing an investigator's data dictionary with a versioned Precision Aging Network (PAN) reference dictionary. It extracts metadata from CSV, TSV, text, and text-based PDF dictionaries; parses variable names, descriptions, allowable values, units, and source domains; and applies a documented harmonization rubric to return a structured crosswalk. The current shared version uses deterministic, versioned comparison rules based on the PAN harmonization workflow, with explicit guardrails for ambiguous fields and required analyst review. It does not analyze subject-level data, and the GitHub Pages build performs the comparison in the browser rather than sending uploaded dictionaries to an external model. A secured API and model-adapter layer remain available for a future institutionally hosted deployment.
+CohortAI-PAN is a tool for comparing an investigator's data dictionary with the Precision Aging Network (PAN) data dictionary. A user can upload a CSV, text file, or text-based PDF, enter the variables they want to study, and get a crosswalk back.
+
+The crosswalk explains whether a variable looks like a direct match, needs harmonization, only partly overlaps, is just extra context, or is not a match. It also explains why the tool made that call and what still needs to be checked by a researcher or statistician.
+
+The shared GitHub Pages version runs in the browser using a public PAN dictionary snapshot. It is for data dictionaries and metadata, not participant data. The comparison is based on documented PAN harmonization rules and is meant to support a review, not replace one.

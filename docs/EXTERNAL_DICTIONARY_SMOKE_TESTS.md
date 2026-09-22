@@ -1,34 +1,34 @@
 # External Dictionary Smoke Tests
 
-This record supplements the committed unit tests with independent, real-world dictionaries. It does not treat CohortAI-PAN output as a gold standard; each expected outcome was checked against the source field description and the PAN professor-method profile.
+These are practical checks with real-world dictionary formats. They are not meant to prove that the tool will be correct for every future study. For each check, the output was compared with the source field description and the PAN harmonization rules.
 
-## ADNI Data Dictionary CSV
+## ADNI CSV
 
-- Source format: ADNI `DATADIC`-style CSV supplied for testing; no ADNI data rows are committed to this repository.
-- Source documentation: [ADNI data dictionary fields](https://adni.loni.usc.edu/quick-start-guide-asset101625/datadic.html).
-- Relevant structure: `PHASE`, `FLDNAME`, `TBLNAME`, `CRFNAME`, `TEXT`, `CODE`, and `UNITS`.
-- Expected parser behavior: use `FLDNAME` as the variable identifier and `TEXT` as its description, not `CRFNAME` as a variable name.
-- Checked outcomes: `AGE` is selected for age, `PTGENDER` for sex, `APOE4`/genotype fields are preferred over APOE biomarker or glycosylation fields, and `MOCA` is selected for MoCA.
+- The test used an ADNI DATADIC-style CSV. No ADNI participant data is included in this repository.
+- ADNI documents the dictionary fields [here](https://adni.loni.usc.edu/quick-start-guide-asset101625/datadic.html).
+- The relevant columns are PHASE, FLDNAME, TBLNAME, CRFNAME, TEXT, CODE, and UNITS.
+- The parser should use FLDNAME for the variable name and TEXT for the description. It should not mistake a CRF name for the variable itself.
+- The test checked that AGE is used for age, PTGENDER for sex, genotype fields such as APOE4 are preferred over APOE protein or glycosylation fields, and MOCA is used for MoCA.
 
-## NACC UDS v2 Data Element Dictionary PDF
+## NACC UDS v2 PDF
 
-- Source: [NACC UDS v2 Data Element Dictionary - IVP](https://files.alz.washington.edu/documentation/uds2-ivp-ded.pdf).
-- Format: 264-page text PDF using repeated `Variable Name`, `Short Descriptor`, and `Allowable Codes` sections.
-- Expected parser behavior: reconstruct named variables from form-style pages and retain descriptions/codes.
-- Checked outcomes:
-  - `SEX` to PAN `sex_hml`: Direct, after analyst confirmation of coding.
-  - `EDUC` to PAN `edu_yrs_hml`: Direct, after confirming years-of-education meaning and range.
-  - `BIRTHYR` to PAN `age_hml`: Partial, because assessment date is required to derive age.
-  - No NACC UDS v2 MoCA variable: No match, not an unrelated cognitive/depression field.
-  - `APOE` genotype-collected flag: No match, because availability is not genotype/e4-carrier data.
+- Source: [NACC UDS v2 Data Element Dictionary](https://files.alz.washington.edu/documentation/uds2-ivp-ded.pdf).
+- This is a 264-page text PDF with repeated Variable Name, Short Descriptor, and Allowable Codes sections.
+- The parser needs to rebuild variables from those form-style pages and keep the description and codes with them.
+- The expected results were:
+  - SEX to PAN sex_hml: direct after checking the coding.
+  - EDUC to PAN edu_yrs_hml: direct after confirming it means years of education.
+  - BIRTHYR to PAN age_hml: partial because a visit date is needed to calculate age.
+  - No NACC UDS v2 MoCA variable: no match. A different cognitive or depression field should not be substituted.
+  - An APOE genotype-collected flag: no match because it is not genotype or e4-carrier information.
 
-## Guardrails Added From These Tests
+## What changed because of these checks
 
-- CSV parser priority for meaningful field and description headers, including `FLDNAME` and `TEXT`.
-- Proper RFC-style handling of quoted and multi-line CSV cells.
-- Text-PDF extraction plus generic form-style dictionary parsing.
-- Penalties for relatives' age at onset and other non-participant age measures.
-- Rejection of APOE protein/biomarker fields and genotype-availability flags as genotype substitutes.
-- Instrument-specific matching so an unrelated field is not used as a MoCA, AVLT, MMSE, or CDR substitute.
+- The CSV parser gives priority to meaningful field and description headers, including FLDNAME and TEXT.
+- Quoted and multi-line CSV cells are handled correctly.
+- Text PDFs and form-style dictionaries can be read.
+- Relative age at onset and similar fields are penalized when the target is participant age.
+- APOE biomarker fields and genotype-availability flags are not treated as APOE genotype.
+- A field from a different instrument is not used as a MoCA, AVLT, MMSE, or CDR replacement just because it is loosely related.
 
-These checks are regression tests, not proof of universal validity. Any report remains decision support and requires source-document and analyst review before pooling or clinical inference.
+Every report still needs source-document and analyst review before someone pools data or makes a clinical or research claim.
