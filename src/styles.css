@@ -1,8 +1,12 @@
 :root {
+  --brand-navy: #224A7B;
+  --brand-blue: #107EAF;
+  --brand-red: #EA2A34;
+  --brand-orange: #FFA942;
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #f4f6f8;
-  color: #182b49;
+  color: var(--brand-navy);
 }
 
 * {
@@ -31,7 +35,7 @@ textarea {
 }
 
 .sidebar {
-  background: #0c234b;
+  background: var(--brand-navy);
   color: #ffffff;
   padding: 28px;
   display: flex;
@@ -65,7 +69,7 @@ textarea {
 }
 
 .sidebar .eyebrow {
-  color: #ffb71b;
+  color: var(--brand-orange);
 }
 
 h1,
@@ -118,11 +122,11 @@ h1 {
 
 .mode-tab.active {
   background: #f7fbfa;
-  color: #153b3f;
+  color: var(--brand-navy);
 }
 
 .status-panel {
-  border-top: 3px solid #ab0520;
+  border-top: 3px solid var(--brand-orange);
   padding-top: 22px;
 }
 
@@ -172,7 +176,7 @@ h1 {
 label {
   display: grid;
   gap: 8px;
-  color: #182b49;
+  color: var(--brand-navy);
   font-size: 0.92rem;
   font-weight: 750;
 }
@@ -185,7 +189,7 @@ textarea {
   border-radius: 8px;
   padding: 12px;
   background: #fbfcfe;
-  color: #182b49;
+  color: var(--brand-navy);
   font-weight: 500;
 }
 
@@ -218,7 +222,7 @@ textarea {
   border: 1px solid #b9c5d4;
   border-radius: 8px;
   background: #ffffff;
-  color: #0c234b;
+  color: var(--brand-navy);
   font-weight: 750;
   cursor: pointer;
 }
@@ -234,7 +238,7 @@ textarea {
   gap: 12px;
   padding: 16px;
   border: 1px solid #c7d2e1;
-  border-left: 4px solid #ab0520;
+  border-left: 4px solid var(--brand-blue);
   border-radius: 8px;
   background: #f4f7fb;
 }
@@ -256,14 +260,14 @@ textarea {
 
 .form-error {
   margin: 0;
-  color: #9a2d2d;
+  color: var(--brand-red);
   font-size: 0.9rem;
   font-weight: 650;
 }
 
 .analysis-progress {
   margin: 0;
-  color: #0c234b;
+  color: var(--brand-blue);
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -276,8 +280,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 3px solid rgba(171, 5, 32, 0.18);
-  border-color: #ab0520;
+  outline: 3px solid rgba(16, 126, 175, 0.2);
+  border-color: var(--brand-blue);
 }
 
 .field-grid {
@@ -293,14 +297,14 @@ textarea:focus {
 }
 
 .primary-button {
-  background: #ab0520;
+  background: var(--brand-blue);
   color: white;
   padding: 0 18px;
 }
 
 .secondary-button {
   background: #f2f5f9;
-  color: #0c234b;
+  color: var(--brand-navy);
   border-color: #c7d2e1;
   padding: 0 14px;
 }
@@ -353,7 +357,7 @@ textarea:focus {
   color: white;
   font-size: 1.35rem;
   font-weight: 850;
-  background: conic-gradient(#ab0520 var(--score), #d5dce5 0);
+  background: conic-gradient(var(--brand-blue) var(--score), #d5dce5 0);
 }
 
 .recommendation {
@@ -362,7 +366,7 @@ textarea:focus {
   border-radius: 999px;
   padding: 7px 10px;
   background: #e8eef6;
-  color: #0c234b;
+  color: var(--brand-navy);
   font-weight: 800;
   font-size: 0.82rem;
 }
@@ -379,7 +383,7 @@ textarea:focus {
 }
 
 .feedback-link {
-  color: #ab0520;
+  color: var(--brand-blue);
   font-weight: 800;
 }
 
@@ -411,7 +415,7 @@ textarea:focus {
   display: block;
   height: 100%;
   width: var(--width);
-  background: #ab0520;
+  background: var(--brand-blue);
 }
 
 .summary-grid {
@@ -448,7 +452,7 @@ textarea:focus {
   font-size: 0.76rem;
   font-weight: 850;
   background: #edf2f2;
-  color: #182b49;
+  color: var(--brand-navy);
 }
 
 .match-badge.direct {
@@ -457,24 +461,24 @@ textarea:focus {
 }
 
 .match-badge.analogous {
-  background: #e4f1fb;
-  color: #155b84;
+  background: rgba(16, 126, 175, 0.14);
+  color: var(--brand-blue);
 }
 
 .match-badge.partial {
-  background: #fff0c7;
-  color: #785500;
+  background: rgba(255, 169, 66, 0.24);
+  color: #704000;
 }
 
 .match-badge.supplemental {
-  background: #f0e9fb;
-  color: #58407d;
+  background: rgba(34, 74, 123, 0.12);
+  color: var(--brand-navy);
 }
 
 .match-badge.no-match,
 .match-badge.needs-review {
-  background: #fde4e4;
-  color: #8a2c2c;
+  background: rgba(234, 42, 52, 0.14);
+  color: var(--brand-red);
 }
 
 .table-wrap {
@@ -493,7 +497,7 @@ td {
   border-bottom: 1px solid #d5dce5;
   text-align: left;
   vertical-align: top;
-  color: #182b49;
+  color: var(--brand-navy);
   font-size: 0.88rem;
 }
 
@@ -527,7 +531,7 @@ th {
 
 .provenance-list dd {
   margin: 0;
-  color: #182b49;
+  color: var(--brand-navy);
 }
 
 @media (max-width: 1100px) {
